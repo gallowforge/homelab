@@ -1,0 +1,35 @@
+# AdGuard Home: DNS for the WHOLE HOUSE. The router hands out 192.168.1.10 and its
+# DNS Director redirects every other resolver (even 1.1.1.1) here, so ANY stop,
+# restart or recreate of this container is a house-wide DNS outage. Do it at a
+# quiet hour, never together with another restart. See README.md in this folder.
+#
+# Update policy: AUTO (adguard/adguardhome:latest). Watchtower applies a new image
+# at 05:30, after the verified 05:00 backup, once it is more than 3 days old. Each
+# applied update is a DNS gap of about 2 s while the container is recreated.
+services:
+  adguard:
+    image: adguard/adguardhome:latest
+    container_name: adguard
+    restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    network_mode: "host"   # binds :53 (DNS) and :3002 (web UI) on the host
+    environment:
+      - TZ=Asia/Kuwait
+    security_opt:
+      - no-new-privileges:true   # runs as root; the :53 bind still works (tested 2026-09-17)
+    oom_score_adj: -500          # under memory pressure the kernel kills other things first
+    healthcheck:
+      # The web UI answering is a cheap liveness signal; DNS itself is watched by
+      # Uptime Kuma "AdGuard DNS (:53)" and homelab-health (127.0.0.1:53).
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://127.0.0.1:3002/"]
+      interval: 5m
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+      start_interval: 5s
+    volumes:
+      - ./work:/opt/adguardhome/work
+      # conf/AdGuardHome.yaml is NOT in git (admin password hash). AdGuard can
+      # rewrite it while running: edit it only with the container stopped.
+      - ./conf:/opt/adguardhome/conf

@@ -1,0 +1,56 @@
+- id: '1733448813475'
+  alias: TV Pause Turn On Lights Blueprint
+  description: ''
+  use_blueprint:
+    path: smarthomesolver/tv_pause_lights_blueprint.yaml
+    input:
+      tv_media_player: media_player.bedroom
+      starttime: '18:00:00'
+      scene_target:
+        entity_id:
+        - scene.bedroom_dimmed_2
+      endtime: '18:00:00'
+- id: '1733448889691'
+  alias: TV Play Turn Off Lights Blueprint
+  description: ''
+  use_blueprint:
+    path: smarthomesolver/tv_play_lights_blueprint.yaml
+    input:
+      tv_media_player: media_player.bedroom
+      endtime: '18:00:00'
+      scene_target:
+        entity_id: scene.playing_tv_lighting
+- id: '1763613969948'
+  alias: Turn on AC
+  description: ''
+  triggers:
+  - type: temperature
+    device_id: <temperature_sensor_device_id>
+    entity_id: <temperature_sensor_entity_id>
+    domain: sensor
+    trigger: device
+    above: 23
+  conditions: []
+  actions:
+  - type: turn_on
+    device_id: <ac_switch_device_id>
+    entity_id: <ac_switch_entity_id>
+    domain: switch
+  mode: single
+- id: '1763614382598'
+  alias: Turn off AC
+  description: ''
+  triggers:
+  - type: temperature
+    device_id: <temperature_sensor_device_id>
+    entity_id: <temperature_sensor_entity_id>
+    domain: sensor
+    trigger: device
+    below: 22.5
+  conditions: []
+  actions:
+  - type: turn_off
+    device_id: <ac_switch_device_id>
+    entity_id: <ac_switch_entity_id>
+    domain: switch
+  mode: single

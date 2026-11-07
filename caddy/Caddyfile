@@ -1,0 +1,56 @@
+# Caddy - the tailnet TLS front door: https://raspberrypi.example-tailnet.ts.net:<port>
+# One site per port, sorted. Gaps (8447-8449, 8451) are free or belong to services
+# that are not part of this public copy. Port registry: ../README.md "Network and ports".
+# Upstreams are never the LAN IP:
+#   <container>:<port>             services on the external 'proxy' network (no host port)
+#   host.docker.internal:<port>    host-network services (extra_hosts host-gateway in compose)
+# Single-file bind mount: edit IN PLACE (cat new > Caddyfile), never replace the inode. Then:
+#   docker exec caddy caddy validate --config /etc/caddy/Caddyfile
+#   docker exec caddy caddy reload --config /etc/caddy/Caddyfile --force
+{
+	auto_https off
+}
+
+(tls_common) {
+	tls /certs/raspberrypi.example-tailnet.ts.net.crt /certs/raspberrypi.example-tailnet.ts.net.key {
+		protocols tls1.2 tls1.3
+	}
+}
+
+# 8443 Home Assistant - host network :8123 (HA trusts X-Forwarded-For only from the proxy network 172.30.0.0/24)
+https://raspberrypi.example-tailnet.ts.net:8443 {
+	import tls_common
+	reverse_proxy host.docker.internal:8123
+}
+# 8444 Dockge - proxy network, no host port (it holds docker.sock)
+https://raspberrypi.example-tailnet.ts.net:8444 {
+	import tls_common
+	reverse_proxy dockge:5001
+}
+# 8445 AdGuard Home web UI - host network :3002
+https://raspberrypi.example-tailnet.ts.net:8445 {
+	import tls_common
+	reverse_proxy host.docker.internal:3002
+}
+# 8446 Uptime Kuma - proxy network, no host port
+https://raspberrypi.example-tailnet.ts.net:8446 {
+	import tls_common
+	reverse_proxy uptime-kuma:3001
+}
+# 8450 CouchDB (Obsidian LiveSync) - proxy network, no host port
+https://raspberrypi.example-tailnet.ts.net:8450 {
+	import tls_common
+	reverse_proxy couchdb:5984
+}
+# 8452 Vaultwarden - proxy network, no host port
+https://raspberrypi.example-tailnet.ts.net:8452 {
+	import tls_common
+	reverse_proxy vaultwarden:80 {
+		header_up X-Real-IP {remote_host}
+	}
+}
+# 8453 Syncthing GUI - host network :8384
+https://raspberrypi.example-tailnet.ts.net:8453 {
+	import tls_common
+	reverse_proxy host.docker.internal:8384
+}

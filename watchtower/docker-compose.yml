@@ -1,0 +1,51 @@
+# Watchtower - the only automatic updater on this Pi.
+# nickfedor/watchtower is the maintained fork (containrrr/watchtower was archived
+# 2025-12 and needed an --api-version workaround). Options below were checked
+# against the fork's v1.22.2 docs and source on 2026-09-17.
+#
+# Update policy per container = its labels (full table: ../README.md "Update policy"):
+#   auto          watchtower.enable=true                      -> applied at 05:30 once the
+#                                                               new image is more than 3 days old
+#   monitor-only  watchtower.enable=true + monitor-only=true  -> ntfy notice only, never applied
+#                                                               (Watchtower does pre-pull the image)
+#   pinned        watchtower.enable=false                      -> never checked (none since 2026-09-25)
+#   excluded      WATCHTOWER_DISABLE_CONTAINERS below          -> never checked, whatever its label
+#
+# This container updates itself like the others (label enable=true, image :latest, 3-day cooldown).
+# One-shot "what is outdated?" (read-only, no ntfy): see ../README.md.
+services:
+  watchtower:
+    image: nickfedor/watchtower:latest
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    env_file:
+      # WATCHTOWER_NOTIFICATION_URL=ntfy://ntfy.sh/<topic>?priority=low&tags=whale
+      # Mode 600, never committed. The topic's source of truth is NTFY_TOPIC in
+      # /etc/homelab/secrets.env - regenerate this file if the topic changes.
+      - .env
+    environment:
+      TZ: Asia/Kuwait                          # the schedule below is local time
+      WATCHTOWER_LABEL_ENABLE: "true"          # only containers labelled enable=true
+      WATCHTOWER_SCHEDULE: "0 30 5 * * *"      # daily 05:30, after the 05:00 homelab-backup run
+      WATCHTOWER_COOLDOWN_DELAY: "3d"          # an image must be >3 days old before it is applied
+      WATCHTOWER_ROLLING_RESTART: "true"       # one container at a time, waits (max 5 min) for healthy
+      # Rolling restart refuses to start if any watched container has a depends_on
+      # (an app -> its redis cache). Ignoring compose depends_on only means a redis
+      # update does not also restart the app, which reconnects on its own.
+      WATCHTOWER_USE_COMPOSE_DEPENDS_ON: "false"
+      WATCHTOWER_CLEANUP: "true"               # remove the replaced image after an update
+      WATCHTOWER_TIMEOUT: "60s"                # stop timeout for stateful apps (default 30s)
+      # Excluded by name, whatever its own label says. Used for a Tailscale Funnel
+      # sidecar (not in this public copy): a restart withdraws its public DNS name for
+      # up to ~18 min, so it is updated by hand at a quiet hour.
+      WATCHTOWER_DISABLE_CONTAINERS: "ts-funnel"
+      WATCHTOWER_NOTIFICATIONS_HOSTNAME: raspberrypi
+      # The startup message stays on: it is the only log line showing the schedule,
+      # time zone and Docker API in use, and it costs one low-priority push per
+      # start of this container (a reboot, a manual restart).
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    security_opt:
+      - no-new-privileges:true

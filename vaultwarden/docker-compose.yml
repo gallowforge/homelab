@@ -1,0 +1,48 @@
+services:
+  vaultwarden:
+    # Update policy: AUTO from :latest (owner decision 2026-09-17). Watchtower applies
+    # a new release at 05:30, after the 05:00 verified backup, and only once the new
+    # image is more than 3 days old (WATCHTOWER_COOLDOWN_DELAY). Vaultwarden has no
+    # moving 1.x tag (only latest, x.y.z, alpine, testing - Docker Hub 2026-09-17),
+    # so :latest would also bring a future 2.0. Guard: homelab-health (07:30,
+    # category "updates") warns the first morning GitHub shows a new MAJOR release,
+    # 2-3 days before Watchtower may apply it, and warns if a release is still not
+    # applied after 7 days.
+    # To HOLD the running version: image: vaultwarden/server:<running version>, then
+    # docker compose up -d vaultwarden (same image, pulled by digest, no upgrade).
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - TZ=Asia/Kuwait
+      - LOGIN_RATELIMIT_SECONDS=60
+      - LOGIN_RATELIMIT_MAX_BURST=5
+      - ADMIN_RATELIMIT_SECONDS=300
+      - ADMIN_RATELIMIT_MAX_BURST=3
+      - IP_HEADER=X-Real-IP
+      - SIGNUPS_ALLOWED=false
+      - WEBSOCKET_ENABLED=true
+      - LOG_FILE=/data/vaultwarden.log
+      - LOG_LEVEL=warn
+      - INVITATIONS_ALLOWED=false
+    volumes:
+      - ./data:/data
+    # NO host port on purpose. Publishing 8222 on 0.0.0.0 bypassed Caddy's
+    # TLS and exposed the web vault and /admin in cleartext to the LAN.
+    # Caddy (:8452) and Uptime Kuma reach it as vaultwarden:80 on the shared
+    # 'proxy' network instead.
+    expose:
+      - "80"
+    networks:
+      - proxy
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 30s
+    oom_score_adj: -500       # under memory pressure the kernel kills other things first
+networks:
+  proxy:
+    external: true   # docker network create --subnet 172.30.0.0/24 proxy

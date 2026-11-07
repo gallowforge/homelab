@@ -1,0 +1,24 @@
+# Whitelist, as on the live Pi: everything is ignored unless listed below.
+# Never tracked: .env files, databases, data and state directories, keys,
+# AdGuardHome.yaml (admin hash), Syncthing config (device keys), HA secrets.yaml
+# and .storage. The pre-commit hook (_host/git-hooks/pre-commit) is the second line.
+/*
+!/.gitignore
+!/README.md
+!/LICENSE
+!/*/
+/*/*
+!/docs/*.md
+!/*/docker-compose.yml
+!/*/.env.example
+!/caddy/Caddyfile
+!/adguard/pin-update.sh
+!/homeassistant/config/
+/homeassistant/config/*
+!/homeassistant/config/configuration.yaml
+!/homeassistant/config/automations.yaml
+!/homeassistant/config/scenes.yaml
+!/homeassistant/config/scripts.yaml
+!/homeassistant/config/tv_picture_mode.py
+!/homeassistant/hue/
+!/_host/**

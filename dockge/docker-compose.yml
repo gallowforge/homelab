@@ -1,0 +1,25 @@
+# Update policy: AUTO within Dockge 1 (louislam/dockge:1). See ../README.md "Update policy".
+# Dockge holds docker.sock (root on the Pi), so it has NO host port: the only way in is
+# https://raspberrypi.example-tailnet.ts.net:8444 through Caddy. The cleartext
+# http://192.168.1.10:5001 was closed on 2026-09-17.
+services:
+  dockge:
+    image: louislam/dockge:1
+    container_name: dockge
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./data:/app/data
+      - /home/pi/docker:/home/pi/docker
+    environment:
+      - DOCKGE_STACKS_DIR=/home/pi/docker
+      - TZ=Asia/Kuwait
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - proxy        # Caddy (:8444) and Uptime Kuma reach it as dockge:5001
+networks:
+  proxy:
+    external: true   # docker network create --subnet 172.30.0.0/24 proxy

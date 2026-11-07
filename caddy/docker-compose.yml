@@ -1,0 +1,58 @@
+# Update policy: AUTO within Caddy 2 (caddy:2). Watchtower applies a new 2.x image
+# at 05:30 once it is more than 3 days old. See ../README.md "Update policy".
+#
+# Caddy is the tailnet TLS front door: https://raspberrypi.example-tailnet.ts.net:84xx
+# (one port per site, see Caddyfile and ../README.md "Network and ports").
+# Upstreams are never the LAN IP:
+#   - services without a host port (vaultwarden, couchdb, dockge, uptime-kuma) by
+#     container name on the external 'proxy' network;
+#   - host-network services (Home Assistant, AdGuard UI, Syncthing GUI) via
+#     host.docker.internal (the Docker host gateway).
+services:
+  caddy:
+    image: caddy:2
+    container_name: caddy
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Kuwait
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      # Admin API on localhost inside the container (the Caddyfile leaves it on;
+      # `caddy reload` needs it too).
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://127.0.0.1:2019/config/"]
+      interval: 5m
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+      start_interval: 5s
+    ports:
+      # One port per site. Gaps belong to services omitted from this public copy.
+      - "8443:8443"
+      - "8444:8444"
+      - "8445:8445"
+      - "8446:8446"
+      - "8450:8450"
+      - "8452:8452"
+      - "8453:8453"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - proxy
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - /etc/tailscale-certs:/certs:ro
+      - caddy_data:/data
+      - caddy_config:/config
+networks:
+  # Shared by Caddy, Uptime Kuma and the services they reach by name. Created once,
+  # outside any stack, so no stack's lifecycle can remove it:
+  #   docker network create --subnet 172.30.0.0/24 proxy
+  # (inside 172.16.0.0/12, which ufw allows; Home Assistant's trusted_proxies is exactly 172.30.0.0/24).
+  proxy:
+    external: true
+volumes:
+  caddy_data:
+  caddy_config:

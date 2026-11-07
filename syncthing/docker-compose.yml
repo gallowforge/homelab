@@ -1,0 +1,21 @@
+# Update policy: AUTO within Syncthing 2 (syncthing/syncthing:2). A future 3.x
+# needs a deliberate tag change. See ../README.md "Update policy".
+services:
+  syncthing:
+    image: syncthing/syncthing:2
+    container_name: syncthing
+    hostname: raspberrypi-syncthing
+    restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Kuwait
+    network_mode: host
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 30s
+    volumes:
+      - ./config:/var/syncthing/config
+      - /opt/filebrowser/data:/var/syncthing/vault

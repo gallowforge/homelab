@@ -1,0 +1,28 @@
+# Update policy: AUTO (:stable). Watchtower applies a new stable image at 05:30,
+# after the 05:00 backup, once it is more than 3 days old. HA ships breaking changes
+# monthly: if something stops working, read that release's notes first.
+# See ../README.md "Update policy".
+# No no-new-privileges here on purpose (host network, device integrations).
+services:
+  homeassistant:
+    container_name: homeassistant
+    image: ghcr.io/home-assistant/home-assistant:stable
+    volumes:
+      - ./config:/config
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - TZ=Asia/Kuwait
+    restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    network_mode: host
+    stop_grace_period: 2m     # let HA close its recorder database cleanly
+    ulimits:
+      core: 0                 # no core dumps (a 716 MB one once landed in config/)
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1:8123/manifest.json"]
+      interval: 5m
+      timeout: 10s
+      retries: 3
+      start_period: 3m
+      start_interval: 10s

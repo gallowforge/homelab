@@ -1,0 +1,32 @@
+# Update policy: AUTO within Uptime Kuma 1 (louislam/uptime-kuma:1). Version 2 lives
+# on tag 2 and migrates the whole database on first start: that is a separate,
+# deliberate job (back up data/ first), never a casual tag edit.
+# See ../README.md "Update policy".
+services:
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma
+    restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    # No host port: the UI is https://raspberrypi.example-tailnet.ts.net:8446
+    # (Caddy). The cleartext http://192.168.1.10:3001 was closed on 2026-09-17.
+    environment:
+      - TZ=Asia/Kuwait
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 30s
+    networks:
+      - proxy        # monitors reach vaultwarden, couchdb and dockge by container name
+    extra_hosts:
+      # The "Tailnet HTTPS" monitor uses the real TLS name. Containers cannot use
+      # MagicDNS, and through AdGuard's LAN rewrite (2026-09-17) the name resolves to
+      # 192.168.1.10, which would skip tailscaled. Pinning the Pi's tailnet IP makes
+      # that monitor exercise tailscaled + the cert Caddy serves + Caddy + Vaultwarden.
+      # The IP is stable unless the node is re-registered (check with: tailscale ip -4).
+      - "raspberrypi.example-tailnet.ts.net:100.64.0.10"
+    volumes:
+      - ./data:/app/data
+networks:
+  proxy:
+    external: true   # docker network create --subnet 172.30.0.0/24 proxy

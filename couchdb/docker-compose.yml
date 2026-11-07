@@ -1,0 +1,38 @@
+# Update policy: AUTO within CouchDB 3.5 (couchdb:3.5). Watchtower applies a new
+# 3.5.x image at 05:30, after the 05:00 backup, once it is more than 3 days old
+# (Obsidian LiveSync pauses for a few seconds). See ../README.md "Update policy".
+#
+# No host port: Obsidian LiveSync uses https://raspberrypi.example-tailnet.ts.net:8450
+# (Caddy). The cleartext http://192.168.1.10:5984, whose only users were Uptime Kuma and
+# audits, was closed on 2026-09-17 (Basic auth on every request).
+services:
+  couchdb:
+    image: couchdb:3.5
+    container_name: couchdb
+    env_file:
+      - .env
+    environment:
+      - TZ=Asia/Kuwait
+    volumes:
+      - ./couchdb-data:/opt/couchdb/data
+      - ./couchdb-etc:/opt/couchdb/etc/local.d
+    networks:
+      - proxy        # Caddy (:8450) and Uptime Kuma reach it as couchdb:5984
+    restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 30s
+    healthcheck:
+      # This server requires a login for everything, so /_up answers 401 to an
+      # anonymous probe. 200 or 401 both prove CouchDB itself is answering.
+      test: ["CMD-SHELL", "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:5984/_up | grep -qE '^(200|401)$$'"]
+      interval: 5m
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+      start_interval: 5s
+networks:
+  proxy:
+    external: true   # docker network create --subnet 172.30.0.0/24 proxy
