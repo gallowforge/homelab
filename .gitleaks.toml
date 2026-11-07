@@ -1,0 +1,9 @@
+# gitleaks: the default rules, plus one reviewed false positive.
+# The captured README demo output names the backup set called "secrets"
+# (secrets_<YYYYmmdd>_<HHMMSS>.tar.gz), which generic-api-key reads as a key.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "backup archive names of the 'secrets' set in captured demo output"
+regexes = ['''^secrets_\d{8}_\d{6}\.tar\.gz$''']

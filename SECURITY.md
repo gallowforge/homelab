@@ -48,7 +48,9 @@ default carried into someone else's copy.
   lines that match known secret shapes. It prints only `file:line` and the rule name,
   never the matched text.
 - **CI is the third.** gitleaks scans the full history on every push
-  ([validate.yml](.github/workflows/validate.yml)).
+  ([validate.yml](.github/workflows/validate.yml)). Its one allowlist entry, in
+  [`.gitleaks.toml`](.gitleaks.toml), is a reviewed false positive: archive names of the
+  backup set called `secrets`.
 - **Backups do not carry secrets where they should not go.** The `secrets` set lives only
   on the Pi and the desktop PC; the PC's Syncthing ignore file holds it back from the
   laptop, and the laptop push script refuses to run if it appears. The `platform` set,
