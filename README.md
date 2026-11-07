@@ -208,8 +208,9 @@ Each cost an outage, data, or a morning of diagnosis, and each ended in a change
 | A partial upstream fault became a 25-minute whole-house DNS outage | Browsing security off; the network probe tells DNS failures from packet loss |
 | The restore drill failed a backup that was fine | The drill compares Home Assistant's key, not its rewritten history |
 
+<a name="architecture"></a>
 <details>
-<summary><b id="architecture">Architecture diagram and services</b></summary>
+<summary><b>Architecture diagram and services</b></summary>
 <br />
 
 ```mermaid
