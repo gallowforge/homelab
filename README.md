@@ -1,5 +1,8 @@
 # Raspberry Pi homelab
 
+[![validate](https://github.com/gallowforge/homelab/actions/workflows/validate.yml/badge.svg)](https://github.com/gallowforge/homelab/actions/workflows/validate.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 One Raspberry Pi 5 runs a household's DNS, password vault, notes sync, smart home and
 monitoring. Every hand-written piece of its configuration lives in git, host files
 included, and a script proves the live machine still matches the repo. An always-on
@@ -7,6 +10,45 @@ Claude Code session works as the on-call operator, bound by a written charter.
 
 This is a public copy of the private repo that runs the Pi. It has been sanitized, and
 some services are left out (see [What this copy leaves out](#what-this-copy-leaves-out)).
+
+## In summary
+
+A Raspberry Pi 5 booting from a USB flash stick serves every device in the house: AdGuard
+for DNS, Vaultwarden for passwords, CouchDB for notes sync, Syncthing for a 65 GB personal
+vault, Home Assistant, and Uptime Kuma, each a Docker Compose stack behind one Caddy front
+door. Nothing is forwarded on the router; devices away from home come in over Tailscale,
+and the same HTTPS links work at home because AdGuard answers the tailnet name with the
+LAN address. Every night a backup engine writes, verifies and only then prunes each data
+set, the archives leave the Pi for two other machines, and a weekly drill restores the
+newest ones into RAM and compares them with live data. Failures reach one phone as one
+deduplicated push, from systemd, Uptime Kuma, a daily health check and an external
+dead-man switch, and an always-on Claude Code session investigates them under a written
+charter. Every hand-written file, host configuration included, lives in this repo at its
+live path, and an install tool shows any difference between git and the machine before
+and after each change.
+
+## Goals, in priority order
+
+When two goals conflict, the lower number wins.
+
+1. **Never lose data.** The password vault, notes, personal vault, Home Assistant config
+   and the backups themselves come before uptime and before convenience. A backup counts
+   only once a restore has read it back.
+2. **Private by default.** Nothing is reachable from the internet unless that was a
+   deliberate, written decision. No forwarded ports, no new public names, no secret in git.
+3. **The house keeps working.** DNS first, then the vault and Home Assistant. Risky work
+   happens after the backup, one container at a time, and fails loudly instead of quietly
+   falling back to something that half works.
+4. **Every change is visible, reproducible and reversible.** Git holds every hand-written
+   file, the install tool refuses to apply uncommitted host files, and the operator's
+   actions are in the git log and a journal. One command stops the operator.
+5. **Low maintenance.** Automated checks over manual care. A manual step that has to be
+   remembered is treated as a bug in the tooling.
+
+Two examples of the order at work: the hardware watchdog stays off, because on this flash
+stick an abrupt reset costs data (1 beats 3). Updates wait for the verified nightly backup
+and a 3-day cooldown, even though that leaves known fixes uninstalled for a few days
+(1 beats 5).
 
 ## Architecture
 
@@ -189,6 +231,92 @@ the AdGuard pin and the network probe skip their runs, alerts do not wake the ca
 and the heartbeat gate ignores Uptime Kuma's state. `/run` is emptied at boot, so a
 forgotten flag cannot outlive a reboot.
 
+## Past failures and what changed
+
+Each of these cost an outage, data, or a morning of diagnosis. Each ended in a change to
+the configuration, a new check, or a written rule the operator follows.
+
+1. **Remote access through a public domain, and a VPN that never connected.**
+   - *What broke:* the first setup published about 17 services under a public domain,
+     first with its own certificates, then behind a Cloudflare Tunnel. A self-hosted
+     WireGuard server ran alongside it and never completed a handshake. Four stale port
+     forwards to the Pi, DNS among them, were still open on the router.
+   - *Root cause:* the ISP uses CGNAT, so nothing inbound can reach the house, and the
+     public names put admin panels on the internet for no real gain.
+   - *Now:* Tailscale only. Port forwarding and UPnP are off, WireGuard was purged with its
+     keys and firewall rules, and the tunnel and domain are gone. Written rule: no new
+     public names, no new open ports.
+
+2. **A fallback DNS server broke every local link on Apple devices.**
+   - *What broke:* the router handed out a public resolver as a second DNS server so the
+     house would survive the Pi going down. Apple devices then lost the Pi's name, and
+     every bookmark to it stopped working.
+   - *Root cause:* Apple's resolver races all configured servers. The public one answered
+     NXDOMAIN for the private name, and that answer often won.
+   - *Now:* the Pi is the only resolver and the router redirects any other DNS to it. The
+     single point of failure is managed in place (see
+     [No fallback DNS, on purpose](#no-fallback-dns-on-purpose)). Hard rule: never add a
+     fallback resolver for clients.
+
+3. **Arming the hardware watchdog reset the Pi and damaged the boot partition.**
+   - *What broke:* minutes after a 15-second systemd watchdog was armed, the Pi reset
+     itself during a 3-second backup run. The boot-time FAT check truncated `cmdline.txt`
+     to 0 bytes, the newest git objects came back empty, and three container logs had runs
+     of NUL bytes. That boot worked only because the bootloader had already read the old
+     file; the next one would not have found the root filesystem.
+   - *Root cause:* PID 1 most likely blocked for more than 15 seconds on writes to the
+     flash stick, and the stick lost its recent writes in the abrupt reset.
+   - *Now:* the watchdog is off by design. Rebooting, editing `/boot/firmware`, forcing
+     fsck and arming the watchdog happen only with someone at the Pi. The health check
+     reports every abrupt reset. `cmdline.txt` was restored from a checksummed copy and
+     the repo from its previous commit, with `git fsck --full` clean.
+
+4. **A memory leak made the whole house's internet feel slow.**
+   - *What broke:* "the internet is very laggy". The internet was fine. The Pi had 55 MB
+     free, swap full on the flash stick and a load of 36, and every DNS lookup in the house
+     waited on it.
+   - *Root cause:* `tv-mood` opened a new HyperHDR connection every second, and HyperHDR
+     leaks memory per connection: 2.6 GB in under two days. `MemoryMax=` would have capped
+     it, but Raspberry Pi OS boots with the memory cgroup disabled, so systemd memory limits
+     silently do nothing.
+   - *Now:* one kept-open connection. `hyperhdr-guard.timer` restarts HyperHDR past
+     300 MB, 1 GB of zstd zram swap sits ahead of the swap file on the stick, and the health
+     check alerts below 800 MB available, naming the biggest process. Runbook order for
+     "the internet is slow": the Pi first, then the ISP.
+
+5. **Watchtower reported healthy while it could not reach Docker.**
+   - *What broke:* two scheduled update runs failed with "Cannot connect to the Docker
+     daemon". The container's health check stayed green and nothing alerted.
+   - *Root cause:* restarting dockerd recreates `/var/run/docker.sock`. A container that
+     bind-mounts it keeps the old, deleted inode.
+   - *Now:* the health check compares the socket inode inside every container that mounts
+     it with the host's, and names the container to restart.
+
+6. **A partial upstream fault became a 25-minute whole-house DNS outage.**
+   - *What broke:* house DNS nearly stopped answering. The network probe reported it as
+     24% international packet loss, and the operator session went deaf too, because its
+     own lookups use the same resolver.
+   - *Root cause:* plain DNS to public resolvers timed out upstream while TCP still worked.
+     AdGuard's browsing-security feature makes every query, cached ones included, wait on a
+     lookup at a server abroad; about 3,600 connections piled up there and turned a partial
+     fault into a total one. The probe resolved its targets by name, so it could not tell a
+     DNS failure from packet loss.
+   - *Now:* browsing security is off. The probe gives a lookup 5 seconds, then tests the
+     last known address, and reports lookup failures as their own category. No automatic
+     AdGuard restart was added: a restart would not have helped, and DNS is not restarted
+     automatically without evidence that it fixes something.
+
+7. **The restore drill failed a backup that was fine.**
+   - *What broke:* the weekly drill failed the secrets set: 1 of 24 restored files differed
+     from live.
+   - *Root cause:* Home Assistant runs its own nightly backup at a drifting time near
+     05:00, sometimes after ours, and rewrites the history part of the file that holds its
+     backup encryption key. The key, the reason the file is backed up, was identical.
+   - *Now:* the drill checks that file by its key only and lists files modified after the
+     archive in the PASS line instead of failing. A changed key still fails, tested with a
+     tampered copy. A drill that cries wolf teaches people to ignore it, so the test was
+     fixed rather than re-run.
+
 ## How a change is made
 
 1. Edit the file in the repo (host files: the copy under `_host/`).
@@ -222,11 +350,14 @@ forgotten flag cannot outlive a reboot.
 │   ├── backup-restore-test.sh   the weekly restore drill
 │   ├── watchdog-tests.sh        stubbed tests for the notifier and netprobe
 │   └── git-hooks/pre-commit     refuses secrets
-└── docs/
-    ├── backups-and-restore.md
-    ├── monitoring-and-alerts.md
-    ├── ai-operator.md
-    └── tv-ambient-lighting.md
+├── docs/                    the deeper write-ups, indexed in docs/README.md
+│   ├── backups-and-restore.md
+│   ├── monitoring-and-alerts.md
+│   ├── ai-operator.md
+│   └── tv-ambient-lighting.md
+├── .github/workflows/       CI: validate.yml
+├── SECURITY.md              threat model, secret handling, how to report
+└── CHANGELOG.md
 ```
 
 Each stack keeps its secrets in a `.env` file (mode 600, never tracked); the `.env.example`
@@ -247,9 +378,22 @@ The live repo is private. This copy differs in three ways:
 - **Private documents rewritten.** The runbooks, the caretaker charter and the journal stay
   private. The files in [`docs/`](docs) are condensed public versions.
 
-Validation of this copy: `bash -n` on every shell script, `py_compile` on every Python file,
-a YAML parse of every compose and Home Assistant file, `homelab-backup --check-config` on the
-backup list, and the stubbed test suite (43 checks, all passing).
+## Validation of this copy
+
+[`validate.yml`](.github/workflows/validate.yml) runs on every push and pull request, and
+every step also runs on a workstation:
+
+- `bash -n` and `shellcheck --severity=error` on every shell script, found by shebang;
+- `python -m py_compile` on every Python file;
+- a YAML parse of every compose and Home Assistant file (HA's `!include` and `!secret`
+  tags are accepted as opaque values);
+- `homelab-backup --check-config` on the backup list;
+- the stubbed test suite for the notifier and the network probe (43 checks), which can
+  reach neither Docker, curl nor ntfy;
+- gitleaks over the full git history.
+
+See [SECURITY.md](SECURITY.md) for how secrets are kept out of the repo and how to report
+one that got in.
 
 ## License
 
