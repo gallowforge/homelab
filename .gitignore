@@ -22,3 +22,6 @@
 !/homeassistant/config/tv_picture_mode.py
 !/homeassistant/hue/
 !/_host/**
+!/.github/workflows/
+/.github/workflows/*
+!/.github/workflows/*.yml
