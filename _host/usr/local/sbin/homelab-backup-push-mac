@@ -1,0 +1,68 @@
+#!/bin/bash
+# homelab-backup-push-mac - a second off-stick copy that does not need the PC.
+#
+# Until 2026-10-21 the only way a backup left this flash stick was the PC's
+# daily pull (the desktop PC's ~/bin/pi-backup-sync.sh); the MacBook got its copy
+# from the PC through Syncthing. The PC is often off for days, and then every
+# backup lived only here (backlog item "a backup that lives on one stick is not
+# a backup"). This pushes the same travelling sets straight to the MacBook
+# whenever it is reachable (home LAN first, then Tailscale).
+#
+#   - Same exclusions as the PC's ~/Backups/pi/.stignore: NEVER secrets,
+#     adhoc, syncthing, dockge (plaintext secrets stay off the laptop).
+#   - Target: Mac ~/Backups/pi-direct/ (its own folder, so it never fights the
+#     PC's Syncthing copy in ~/Backups/pi). Dirs 700, files 600. No --delete;
+#     files older than KEEP_DAYS are pruned there (the PC keeps 90 too).
+#   - Needs FREE_MIN_GB free on the Mac, else it skips and says so.
+#   - Success writes /var/lib/homelab/mirror-mac (epoch); homelab-health counts
+#     a fresh PC pull OR a fresh Mac push as "the backups are off the stick".
+#
+# Run by homelab-backup-push-mac.timer (every 20 min, so a short MacBook session
+# is enough; an unreachable Mac costs two 6 s connect attempts).
+# Runs as root (the archives are root 0600) with the owner's SSH key.
+set -uo pipefail
+umask 077
+export LC_ALL=C
+
+SRC=/home/pi/backups
+KEY=/home/pi/.ssh/id_ed25519
+SSHCFG=/home/pi/.ssh/config
+KNOWN=/home/pi/.ssh/known_hosts
+STATE=/var/lib/homelab/mirror-mac
+DEST='Backups/pi-direct'
+KEEP_DAYS=90
+FREE_MIN_GB=5
+SETS="adguard couchdb kuma vaultwarden homeassistant platform archive"
+
+ssh_opts=(-F "$SSHCFG" -i "$KEY" -o IdentitiesOnly=yes -o BatchMode=yes
+          -o ConnectTimeout=6 -o UserKnownHostsFile="$KNOWN" -o StrictHostKeyChecking=yes)
+
+host=""
+for h in mac-lan mac; do
+  if ssh "${ssh_opts[@]}" "$h" true 2>/dev/null; then host=$h; break; fi
+done
+if [ -z "$host" ]; then
+  echo "MacBook not reachable (mac-lan, mac): nothing to do"; exit 0
+fi
+
+free_gb=$(ssh "${ssh_opts[@]}" "$host" 'df -g ~ | awk "NR==2{print \$4}"' 2>/dev/null)
+case "$free_gb" in ''|*[!0-9]*) echo "could not read free space on $host"; exit 1 ;; esac
+if [ "$free_gb" -lt "$FREE_MIN_GB" ]; then
+  echo "SKIP: only ${free_gb} GB free on the MacBook (need ${FREE_MIN_GB})"; exit 1
+fi
+
+ssh "${ssh_opts[@]}" "$host" "mkdir -p ~/$DEST && chmod 700 ~/Backups ~/$DEST" || exit 1
+
+src=()
+for s in $SETS; do [ -d "$SRC/$s" ] && src+=("$SRC/$s"); done
+for forbidden in secrets adhoc syncthing dockge; do
+  case " ${src[*]} " in *"/$forbidden "*) echo "refusing: $forbidden would travel"; exit 1 ;; esac
+done
+
+rsync -rt --chmod=D700,F600 --partial --timeout=120 \
+      -e "ssh ${ssh_opts[*]}" "${src[@]}" "$host:$DEST/" || { echo "rsync to $host failed"; exit 1; }
+
+ssh "${ssh_opts[@]}" "$host" "find ~/$DEST -type f -mtime +$KEEP_DAYS -delete" || true
+
+date +%s > "$STATE"
+echo "OK pushed ${#src[@]} sets to $host:~/$DEST (${free_gb} GB free there)"

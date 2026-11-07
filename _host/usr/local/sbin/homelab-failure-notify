@@ -1,0 +1,47 @@
+#!/bin/bash
+# homelab-failure-notify <unit> - run by homelab-failure@<unit>.service, which
+# systemd starts when a homelab unit fails (OnFailure=homelab-failure@%n.service
+# in that unit's [Unit] section).
+#
+# Sends ONE ntfy push per failing unit per 20 h (dedupe key unit-failed-<unit>),
+# quoting the failed run's own log lines (FAILED/ERROR lines first, else the
+# tail), with obvious secrets redacted. The unit's ExecStartPost sends the
+# all-clear (homelab-notify.sh --resolve unit-failed-<unit>) on its next success.
+#
+# Test without pushing:  HOMELAB_NOTIFY=/bin/echo homelab-failure-notify <unit>
+set -uo pipefail
+UNIT=${1:-}
+NOTIFY=${HOMELAB_NOTIFY:-/usr/local/bin/homelab-notify.sh}
+case "$UNIT" in
+  ''|*[!A-Za-z0-9@._:\\-]*) echo "usage: homelab-failure-notify <unit-name>" >&2; exit 0 ;;
+esac
+
+redact() {
+  sed -E \
+    -e 's#(ntfy\.sh/)[A-Za-z0-9_-]{6,}#\1<redacted>#g' \
+    -e 's#(https?://)[^/[:space:]:@]+:[^/[:space:]@]+@#\1<redacted>@#g' \
+    -e 's#([A-Za-z0-9_]*(PASSWORD|PASSWD|SECRET|TOKEN|API_?KEY|AUTH|NTFY_TOPIC|PING_URL)[A-Za-z0-9_]*[[:space:]]*[=:][[:space:]]*)[^[:space:]]+#\1<redacted>#Ig' \
+    -e 's#tskey-[A-Za-z0-9-]+#tskey-<redacted>#g'
+}
+
+inv=$(systemctl show -p InvocationID --value -- "$UNIT" 2>/dev/null)
+result=$(systemctl show -p Result --value -- "$UNIT" 2>/dev/null)
+status=$(systemctl show -p ExecMainStatus --value -- "$UNIT" 2>/dev/null)
+if [ -n "$inv" ]; then
+  lines=$(journalctl -o cat --no-pager _SYSTEMD_INVOCATION_ID="$inv" 2>/dev/null)
+else
+  lines=$(journalctl -o cat --no-pager -u "$UNIT" -n 40 2>/dev/null)
+fi
+important=$(grep -E '^(FAILED|ERROR|PROBLEM)' <<< "$lines" | tail -n 12)
+[ -n "$important" ] || important=$(tail -n 12 <<< "$lines")
+[ -n "$important" ] || important="(no log lines found)"
+body="$(printf 'Result: %s (exit status %s)\n\n%s\n\nMore: journalctl -u %s -n 80' \
+  "${result:-unknown}" "${status:-?}" "$important" "$UNIT" | redact | head -c 3000)"
+
+prio=default
+case "$UNIT" in
+  homelab-backup.*|*watchdog.*|tailscale-cert-renew.*) prio=high ;;
+esac
+
+"$NOTIFY" --key "unit-failed-$UNIT" --every 20 "$prio" "$UNIT failed on raspberrypi" "$body"
+exit 0

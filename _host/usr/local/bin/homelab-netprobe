@@ -1,0 +1,283 @@
+#!/usr/bin/env python3
+"""homelab-netprobe - evidence for "is it the Pi, the house, or the ISP?"
+
+When the internet "feels slow" in this house it has almost always been the ISP's
+international routes in the evening, not the Pi (caretaker lessons, 2026-10-02).
+This keeps the proof ready instead of measuring after the fact.
+
+Every 2 minutes (homelab-netprobe.timer) it opens 4 TCP connections to each target
+below and appends one line per target to /run/homelab/netprobe.tsv. That is RAM:
+nothing is written to the flash stick, and the history (7 days) is lost on a reboot.
+No data is sent anywhere: a connection is opened and closed, nothing else.
+
+  homelab-netprobe probe            one round (what the timer runs)
+  homelab-netprobe report [HOURS]   loss and connect time per hour (default 12 h)
+  homelab-netprobe summary          one line for homelab-health
+
+Reading it: "lan" bad = the house network or the Pi itself; "near" bad too = the
+ISP as a whole; only "far" bad = the ISP's international routes.
+A connect that needed 1 s or more had its first SYN (or the answer) dropped and
+was retried by the kernel, so it counts as a loss, the same as a timeout.
+
+The far targets are names, so the Pi's own DNS (AdGuard first) is in the way.
+A lookup gets 5 s; when it fails the target is probed on its last known
+address (kept in RAM) and the row says "dns-cached"; with no known address the
+row says "dns" and is not a network sample. A failed lookup is never counted as
+loss: on 2026-10-28 a 25-min AdGuard outage read as "international 24% loss".
+"""
+import os
+import socket
+import statistics
+import sys
+import threading
+import time
+
+DATA = os.environ.get("NETPROBE_DATA", "/run/homelab/netprobe.tsv")  # override: tests only
+IPS = os.environ.get("NETPROBE_IPS", "/run/homelab/netprobe-ips")    # last good address per name
+MAINT = "/run/homelab/maintenance"
+KEEP_S = 7 * 86400
+TRIES, GAP_S, TIMEOUT_S, LOST_MS = 4, 0.25, 3.0, 1000.0
+RESOLVE_S = 5.0
+NOT_MEASURED = ("dns", "hung")      # rows that are no network sample (no address, or hung)
+DNS_FAILED = ("dns", "dns-cached", "hung")
+
+# name, group, host, port. The far ones are AWS regional API endpoints: single-region
+# (not anycast), always up, and nothing the house depends on.
+TARGETS = [
+    ("router", "lan", "192.168.1.1", 80),
+    ("cloudflare", "near", "1.1.1.1", 443),
+    ("google", "near", "8.8.8.8", 443),
+    ("frankfurt", "far", "ec2.eu-central-1.amazonaws.com", 443),
+    ("virginia", "far", "ec2.us-east-1.amazonaws.com", 443),
+    ("tokyo", "far", "ec2.ap-northeast-1.amazonaws.com", 443),
+]
+GROUPS = ["lan", "near", "far"]
+
+
+def resolve(host, port):
+    """The address for host, or None when the lookup fails or takes over RESOLVE_S."""
+    res = {}
+
+    def run():
+        try:
+            res["ip"] = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]
+        except OSError:
+            pass
+    th = threading.Thread(target=run, daemon=True)  # a hung lookup dies with the process
+    th.start()
+    th.join(RESOLVE_S)
+    return res.get("ip")
+
+
+def probe_one(name, group, host, port, out, known):
+    ip, note = resolve(host, port), ""
+    if ip is None:
+        ip, note = known.get(host), "dns-cached"
+        if ip is None:
+            out[name] = (TRIES, TRIES, None, "dns")  # no address at all: not a network sample
+            return
+    elif ip != host:
+        known[host] = ip
+    lost, times = 0, []
+    for i in range(TRIES):
+        if i:
+            time.sleep(GAP_S)
+        t = time.perf_counter()
+        try:
+            socket.create_connection((ip, port), timeout=TIMEOUT_S).close()
+        except OSError:
+            lost += 1
+            continue
+        ms = (time.perf_counter() - t) * 1000
+        if ms >= LOST_MS:
+            lost += 1
+        else:
+            times.append(ms)
+    out[name] = (TRIES, lost, statistics.median(times) if times else None, note)
+
+
+def load_known():
+    try:
+        with open(IPS) as f:
+            return dict(line.split() for line in f if len(line.split()) == 2)
+    except OSError:
+        return {}
+
+
+def probe():
+    if os.path.exists(MAINT):
+        return 0  # maintenance (Docker/AdGuard may be down on purpose): leave a gap
+    now = int(time.time())
+    out, known = {}, load_known()
+    before = dict(known)
+    threads = [threading.Thread(target=probe_one, args=(*t, out, known)) for t in TARGETS]
+    for th in threads:
+        th.start()
+    for th in threads:
+        th.join(30)
+    lines = []
+    for name, group, _host, _port in TARGETS:
+        sent, lost, med, note = out.get(name, (TRIES, TRIES, None, "hung"))
+        lines.append(f"{now}\t{name}\t{group}\t{sent}\t{lost}\t{'' if med is None else f'{med:.1f}'}\t{note}\n")
+    os.makedirs(os.path.dirname(DATA), exist_ok=True)
+    if known != before:
+        with open(IPS + ".tmp", "w") as f:
+            f.writelines(f"{h} {a}\n" for h, a in sorted(known.items()))
+        os.replace(IPS + ".tmp", IPS)
+    trim(now)
+    with open(DATA, "a") as f:
+        f.writelines(lines)
+    return 0
+
+
+def trim(now):
+    """Drop rows older than KEEP_S; rewrites the file about once an hour, not every run."""
+    rows = read_rows()
+    if rows and rows[0][0] < now - KEEP_S - 3600:
+        tmp = DATA + ".tmp"
+        with open(tmp, "w") as f:
+            f.writelines(r[-1] for r in rows if r[0] >= now - KEEP_S)
+        os.replace(tmp, DATA)
+
+
+def read_rows():
+    rows = []
+    try:
+        with open(DATA) as f:
+            for line in f:
+                p = line.rstrip("\n").split("\t")
+                if len(p) != 7:
+                    continue
+                try:
+                    rows.append((int(p[0]), p[1], p[2], int(p[3]), int(p[4]),
+                                 float(p[5]) if p[5] else None, p[6], line))
+                except ValueError:
+                    continue
+    except FileNotFoundError:
+        pass
+    return rows
+
+
+def stats(rows):
+    """(loss %, median connect ms or None, samples) over rows of one target or group."""
+    rows = [r for r in rows if r[6] not in NOT_MEASURED]
+    sent = sum(r[3] for r in rows)
+    lost = sum(r[4] for r in rows)
+    meds = [r[5] for r in rows if r[5] is not None]
+    return (100.0 * lost / sent if sent else None,
+            statistics.median(meds) if meds else None, len(rows))
+
+
+def cell(loss, med):
+    if loss is None:
+        return "-"
+    return f"{loss:.0f}%/{'-' if med is None else f'{med:.0f}'}"
+
+
+def verdict(rows, base, long=False):
+    """Plain-words reading of a window, against each target's 7-day normal."""
+    dns = sum(1 for r in rows if r[6] in DNS_FAILED)
+    note = ((f"; the Pi's own DNS failed in {dns} probes (not counted as loss)" if long
+             else f"; Pi DNS failed {dns}x") if dns else "")
+    bad = []
+    for g in GROUPS:
+        loss, _med, n = stats([r for r in rows if r[2] == g])
+        if not n:
+            continue
+        slow = []
+        for name, group, *_ in TARGETS:
+            if group != g:
+                continue
+            _l, m, _n = stats([r for r in rows if r[1] == name])
+            b = base.get(name)
+            if m is not None and b is not None and m > 1.5 * b + 20:
+                slow.append(name)
+        if loss >= 2 or slow:
+            bad.append((g, loss, slow))
+    if not bad:
+        return "all paths clean" + note
+    worst = {g for g, *_ in bad}
+    if "lan" in worst:
+        who = ("the house network or the Pi (the router itself is lossy/slow)" if long
+               else "house network/Pi")
+    elif "near" in worst:
+        who = "the ISP as a whole (nearby servers are lossy/slow too)" if long else "ISP (all paths)"
+    else:
+        who = ("the ISP's international routes (only far-away servers are affected)" if long
+               else "ISP international")
+    parts = [f"{g} {loss:.0f}% loss" + (f", slow: {' '.join(s)}" if s else "") for g, loss, s in bad]
+    return f"{who}: {'; '.join(parts)}" + note
+
+
+def baseline(rows):
+    """Each target's normal connect time: the median over all kept history."""
+    out = {}
+    for name, *_ in TARGETS:
+        _l, m, _n = stats([r for r in rows if r[1] == name])
+        out[name] = m
+    return out
+
+
+def report(hours):
+    rows = read_rows()
+    if not rows:
+        print(f"no data in {DATA} (timer: systemctl status homelab-netprobe.timer)")
+        return 1
+    now = int(time.time())
+    base = baseline(rows)
+    since = now - hours * 3600
+    win = [r for r in rows if r[0] >= since]
+    names = [t[0] for t in TARGETS]
+    print(f"TCP connect test every 2 min, last {hours} h, Kuwait time. Each cell: loss % / median ms.")
+    print(f"{'hour':<6}" + "".join(f"{n:>12}" for n in names) + "   reading")
+    first_hour = since - since % 3600
+    for h in range(first_hour, now + 1, 3600):
+        hr = [r for r in win if h <= r[0] < h + 3600]
+        if not hr:
+            continue
+        cells = "".join(f"{cell(*stats([r for r in hr if r[1] == n])[:2]):>12}" for n in names)
+        v = verdict(hr, base)
+        print(f"{time.strftime('%H:00', time.localtime(h)):<6}{cells}   {'ok' if v == 'all paths clean' else v}")
+    print(f"{'normal':<6}" + "".join(f"{'-' if base[n] is None else f'{base[n]:.0f}':>12}" for n in names)
+          + f"   (median over {(now - rows[0][0]) / 86400:.1f} days)")
+    print(f"Verdict, last {hours} h: {verdict(win, base, long=True)}")
+    return 0
+
+
+def summary():
+    rows = read_rows()
+    if not rows:
+        print("netprobe: no data")
+        return 0
+    now = int(time.time())
+    base = baseline(rows)
+    age = (now - rows[-1][0]) // 60
+    last_h = [r for r in rows if r[0] >= now - 3600]
+    day = [r for r in rows if r[0] >= now - 86400]
+    worst, worst_loss = None, 0.0
+    start = now - 86400
+    for h in range(start - start % 3600, now, 3600):  # clock hours, as in the report
+        loss, _m, n = stats([r for r in day if r[2] == "far" and h <= r[0] < h + 3600])
+        if n and loss > worst_loss:
+            worst, worst_loss = h, loss
+    w = (f", worst far hour {time.strftime('%H:00', time.localtime(worst))} {worst_loss:.0f}% loss"
+         if worst is not None and worst_loss >= 2 else "")
+    print(f"netprobe: newest {age} min ago; last hour: {verdict(last_h, base)}; "
+          f"24 h: {verdict(day, base)}{w}")
+    return 0
+
+
+def main(argv):
+    cmd = argv[1] if len(argv) > 1 else "report"
+    if cmd == "probe":
+        return probe()
+    if cmd == "report":
+        return report(int(argv[2]) if len(argv) > 2 else 12)
+    if cmd == "summary":
+        return summary()
+    print(__doc__.strip(), file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

@@ -1,0 +1,520 @@
+#!/bin/bash
+# homelab-backup - the Pi's ONE backup engine. Since 2026-09-17 it replaces
+# ~/backup-pi.sh (root cron 05:00) and ~/docker/vaultwarden/backup.sh (user
+# cron 04:00, which had silently stopped including rsa_key.pem on 09-16).
+#
+#   homelab-backup                  run every set in /etc/homelab/backups.conf
+#   homelab-backup --only a,b       run only these sets (no ad-hoc expiry)
+#   homelab-backup --list-sets      print "name<TAB>type<TAB>keep<TAB>max_age_h"
+#                                   (homelab-health reads this: one list)
+#   homelab-backup --check-config   parse and validate the config, then exit
+#
+# Run by homelab-backup.timer at 05:00. Log: journalctl -u homelab-backup
+# After a set is VERIFIED its status goes to /var/lib/homelab/backup-status/<set>.
+#
+# Failure handling: sets are independent. A failed set keeps all its older
+# archives (no prune), gets a "FAILED <set>: <why>" log line, and the run exits
+# 1 at the end. systemd then starts homelab-failure@homelab-backup.service,
+# which sends ONE deduped ntfy push quoting those lines. This script never
+# pushes by itself (that used to cause double alerts).
+#
+# Two rules inherited from backup-pi.sh - both bugs were found by TESTING the
+# failure path on 2026-09-15, not by reading:
+#  1. Every critical command inside a subshell ends in `|| exit 1` / `|| fail`.
+#     `set -e` is disabled inside a compound command on the left of `||`, and a
+#     failed sqlite3 once still produced a valid-looking archive with no DB.
+#  2. Prune only after THIS run's archive is proven to contain the required
+#     members. Never `tar -t | grep -q` under pipefail (grep exits on the first
+#     match, tar gets SIGPIPE, the pipeline "fails"): capture the listing, then
+#     grep a here-string.
+# Plus, new: `forbid` patterns keep secrets out of sets that travel to the
+# MacBook, and the newest 3 archives of a set are never pruned.
+# shellcheck disable=SC2015,SC2030,SC2031,SC2329  # A&&B||C is intended; gen_* are called by name
+set -uo pipefail
+set -f          # no pathname expansion of config values; enabled only where wanted
+umask 077
+export LC_ALL=C
+
+CONF=${HOMELAB_BACKUP_CONF:-/etc/homelab/backups.conf}
+STATUS_DIR=${HOMELAB_BACKUP_STATUS:-/var/lib/homelab/backup-status}
+LOCK=${HOMELAB_BACKUP_LOCK:-/run/lock/homelab-backup.lock}
+KEEP_MIN=3
+TS=$(date +%Y%m%d_%H%M%S)
+START=$(date +%s)
+FAILED=()
+
+declare -A C=()     # C[set.key]=value (repeated keys are joined with a space)
+SETS=()
+
+log()  { printf '%s\n' "$*"; }
+fail() { # fail <set> <detail>
+  local d=${2//$'\n'/ }
+  FAILED+=("$1: $d")
+  log "FAILED $1: $d"
+}
+
+# ---------------------------------------------------------------- config ----
+trim() { local s=$1; s=${s#"${s%%[![:space:]]*}"}; s=${s%"${s##*[![:space:]]}"}; printf '%s' "$s"; }
+
+parse_config() {
+  local line n=0 section="" key val
+  if [ ! -r "$CONF" ]; then echo "config $CONF is not readable" >&2; return 2; fi
+  while IFS= read -r line || [ -n "$line" ]; do
+    n=$((n + 1))
+    line=$(trim "$line")
+    case "$line" in
+      ''|'#'*) continue ;;
+      '['*']')
+        section=${line:1:${#line}-2}
+        if ! [[ $section =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
+          echo "$CONF:$n: bad section name [$section]" >&2; return 2
+        fi
+        if [ -n "${C[$section.__line]+x}" ]; then
+          echo "$CONF:$n: section [$section] defined twice" >&2; return 2
+        fi
+        C[$section.__line]=$n
+        [ "$section" = defaults ] || SETS+=("$section")
+        ;;
+      *=*)
+        key=$(trim "${line%%=*}"); val=$(trim "${line#*=}")
+        if [ -z "$section" ] || ! [[ $key =~ ^[a-z_]+$ ]]; then
+          echo "$CONF:$n: bad line (key = value inside a [section] expected)" >&2; return 2
+        fi
+        if [ -n "${C[$section.$key]+x}" ]; then C[$section.$key]+=" $val"; else C[$section.$key]=$val; fi
+        ;;
+      *) echo "$CONF:$n: cannot parse this line" >&2; return 2 ;;
+    esac
+  done < "$CONF"
+  return 0
+}
+
+get() { printf '%s' "${C[$1.$2]:-${3:-}}"; }
+
+validate_config() {
+  local s t k bad=0 v
+  BASE=${HOMELAB_BACKUP_BASE:-$(get defaults base)}
+  ADHOC_DAYS=$(get defaults adhoc_days 30)
+  case "$BASE" in /*) ;; *) echo "defaults.base must be an absolute path" >&2; bad=1 ;; esac
+  case "$ADHOC_DAYS" in ''|*[!0-9]*) echo "defaults.adhoc_days must be a number" >&2; bad=1 ;; esac
+  [ ${#SETS[@]} -gt 0 ] || { echo "no sets defined" >&2; bad=1; }
+  for s in "${SETS[@]}"; do
+    t=$(get "$s" type)
+    case "$(get "$s" keep)" in ''|*[!0-9]*|0) echo "[$s] keep must be a number >= 1" >&2; bad=1 ;; esac
+    case "$(get "$s" max_age_h 48)" in ''|*[!0-9]*|0) echo "[$s] max_age_h must be a number >= 1" >&2; bad=1 ;; esac
+    case "$t" in
+      sqlite)
+        v=$(get "$s" db); [[ $v == /* ]] || { echo "[$s] db must be an absolute path" >&2; bad=1; }
+        v=$(get "$s" count); [[ -z $v || $v =~ ^[A-Za-z0-9_]+$ ]] || { echo "[$s] count must be a table name" >&2; bad=1; } ;;
+      dir)
+        v=$(get "$s" root); [[ $v == /* ]] || { echo "[$s] root must be an absolute path" >&2; bad=1; }
+        [ -n "$(get "$s" include)" ] || { echo "[$s] include is empty" >&2; bad=1; } ;;
+      ha-link)
+        v=$(get "$s" source); [[ $v == /* ]] || { echo "[$s] source must be an absolute path" >&2; bad=1; }
+        case "$(get "$s" min_age_min 10)" in ''|*[!0-9]*) echo "[$s] min_age_min must be a number" >&2; bad=1 ;; esac ;;
+      files)
+        [ -n "$(get "$s" paths)" ] || { echo "[$s] paths is empty" >&2; bad=1; }
+        for k in $(get "$s" generate); do
+          case "$k" in git-bundle|crontabs|packages|docker|sysinfo) ;; *) echo "[$s] unknown generator $k" >&2; bad=1 ;; esac
+        done ;;
+      *) echo "[$s] unknown type '$t'" >&2; bad=1 ;;
+    esac
+    for k in files optional must paths; do
+      for v in $(get "$s" "$k"); do
+        [[ $v == /* ]] || { echo "[$s] $k entry '$v' is not an absolute path" >&2; bad=1; }
+      done
+    done
+  done
+  return $bad
+}
+
+# --------------------------------------------------------------- helpers ----
+ensure_dir() { # ensure_dir <dir>: create (root 700) if missing
+  [ -d "$1" ] && return 0
+  install -d -m 700 -o root -g root "$1"
+}
+
+# verify_archive <set> <archive> <tar-list-flag: -tzf|-tf>
+# Sets MEMBERS. On failure: logs, deletes the archive if it was ours, returns 1.
+verify_archive() {
+  local set=$1 archive=$2 flag=$3 listing re
+  MEMBERS=0
+  if [ ! -s "$archive" ]; then fail "$set" "no archive produced - nothing pruned"; return 1; fi
+  if ! listing=$(tar "$flag" "$archive" 2>/dev/null); then
+    fail "$set" "archive $(basename "$archive") is unreadable - nothing pruned"
+    [ "$flag" = -tzf ] && rm -f -- "$archive"
+    return 1
+  fi
+  for re in $(get "$set" require); do
+    if ! grep -qE -- "$re" <<< "$listing"; then
+      fail "$set" "archive has no member matching '$re' - nothing pruned"
+      [ "$flag" = -tzf ] && rm -f -- "$archive"
+      return 1
+    fi
+  done
+  for re in $(get "$set" forbid); do
+    if grep -qE -- "$re" <<< "$listing"; then
+      fail "$set" "archive contains a FORBIDDEN member matching '$re' - archive deleted, nothing pruned"
+      [ "$flag" = -tzf ] && rm -f -- "$archive"
+      return 1
+    fi
+  done
+  MEMBERS=$(grep -c . <<< "$listing")
+  return 0
+}
+
+# prune <set> <dir> <name-glob> <days>: age-based, never the newest KEEP_MIN (by mtime)
+prune() {
+  local set=$1 dir=$2 glob=$3 days=$4 f n=0
+  local -a all=() old=()
+  local -A protected=()
+  mapfile -t all < <(find "$dir" -maxdepth 1 -type f -name "$glob" -printf '%T@ %f\n' | sort -n | cut -d' ' -f2-)
+  local i start=$(( ${#all[@]} - KEEP_MIN ))
+  [ "$start" -lt 0 ] && start=0
+  for (( i = start; i < ${#all[@]}; i++ )); do protected[${all[i]}]=1; done
+  mapfile -t old < <(find "$dir" -maxdepth 1 -type f -name "$glob" -mtime +"$days" -printf '%f\n')
+  for f in "${old[@]}"; do
+    [ -n "$f" ] || continue
+    [ -n "${protected[$f]:-}" ] && continue
+    rm -f -- "${dir:?}/$f" && n=$((n + 1))
+  done
+  PRUNED=$n
+}
+
+write_status() { # write_status <set> <file> <extra key=value lines...>
+  local set=$1 file=$2; shift 2
+  ensure_dir "$STATUS_DIR" || return 0
+  local tmp="$STATUS_DIR/.$set.$$"
+  {
+    printf 'epoch=%s\ntime=%s\nfile=%s\nbytes=%s\n' "$(date +%s)" "$(date -Is)" "$file" "$(stat -c %s "$file" 2>/dev/null || echo 0)"
+    printf '%s\n' "$@"
+  } > "$tmp" && mv -f "$tmp" "$STATUS_DIR/$set"
+}
+
+clean_partials() { # stale .partial files from a crashed run
+  find "$1" -maxdepth 1 -type f -name '*.partial' -mmin +360 -delete 2>/dev/null
+}
+
+# tar_retry <errvar> <tar args...>: GNU tar exits 1 for "file changed as we
+# read it" (live files). Retry once after 30 s; exit 2 or a second 1 is final.
+tar_retry() {
+  local __var=$1; shift
+  local out rc attempt
+  for attempt in 1 2; do
+    out=$(tar "$@" 2>&1 >/dev/null); rc=$?
+    if [ "$rc" -eq 0 ]; then printf -v "$__var" '%s' ""; return 0; fi
+    if [ "$rc" -eq 1 ] && [ "$attempt" -eq 1 ]; then
+      log "  tar reported changing files ($(head -c 200 <<< "$out" | tr '\n' ' ')) - retrying in 30 s" >&2
+      sleep 30; continue
+    fi
+    break
+  done
+  printf -v "$__var" 'tar exit %s: %s' "$rc" "$(head -c 300 <<< "$out" | tr '\n' ' ')"
+  return 1
+}
+
+# ---------------------------------------------------------------- sqlite ----
+run_sqlite() {
+  local set=$1 dir db dbname table archive out rc rows=""
+  dir="$BASE/$set"; db=$(get "$set" db); dbname=$(basename "$db"); table=$(get "$set" count)
+  archive="$dir/${set}_$TS.tar.gz"
+  ensure_dir "$dir" || { fail "$set" "cannot create $dir"; return; }
+  clean_partials "$dir"
+  out=$(
+    [ -s "$db" ] || { echo "database $db is missing or empty"; exit 1; }
+    TMP=$(mktemp -d "${TMPDIR:-/tmp}/homelab-backup.$set.XXXXXX") || { echo "mktemp failed"; exit 1; }
+    trap 'rm -rf "$TMP"' EXIT
+    err=$(sqlite3 "$db" ".timeout 30000" ".backup $TMP/$dbname" 2>&1 >/dev/null) \
+      || { echo "sqlite3 .backup failed: $(head -c 200 <<< "$err")"; exit 1; }
+    [ -s "$TMP/$dbname" ] || { echo "snapshot is empty"; exit 1; }
+    qc=$(sqlite3 "$TMP/$dbname" "PRAGMA quick_check;" 2>&1) || { echo "quick_check could not run: $(head -c 200 <<< "$qc")"; exit 1; }
+    [ "$qc" = ok ] || { echo "quick_check of the copy: $(head -c 200 <<< "$qc")"; exit 1; }
+    if [ -n "$table" ]; then
+      rows=$(sqlite3 "$TMP/$dbname" "SELECT count(*) FROM \"$table\";" 2>&1) || { echo "row count of $table failed: $(head -c 200 <<< "$rows")"; exit 1; }
+      case "$rows" in ''|*[!0-9]*) echo "row count of $table is not a number"; exit 1 ;; esac
+      [ "$rows" -gt 0 ] || { echo "table $table has 0 rows"; exit 1; }
+    fi
+    rm -f "$TMP/$dbname-shm"
+    [ -s "$TMP/$dbname-wal" ] && { echo "copy still has a WAL file after close"; exit 1; }
+    rm -f "$TMP/$dbname-wal"
+    members=("./$dbname")
+    for f in $(get "$set" files); do
+      [ -e "$f" ] || { echo "required file $f is missing"; exit 1; }
+      b=$(basename "$f"); [ -e "$TMP/$b" ] && { echo "two members named $b"; exit 1; }
+      cp -a -- "$f" "$TMP/$b" || { echo "copying $f failed"; exit 1; }
+      members+=("./$b")
+    done
+    for f in $(get "$set" optional); do
+      [ -e "$f" ] || continue
+      b=$(basename "$f"); [ -e "$TMP/$b" ] && { echo "two members named $b"; exit 1; }
+      cp -a -- "$f" "$TMP/$b" || { echo "copying $f failed"; exit 1; }
+      members+=("./$b")
+    done
+    tar -czf "$archive.partial" -C "$TMP" "${members[@]}" 2>/dev/null || { rm -f "$archive.partial"; echo "tar failed"; exit 1; }
+    chmod 600 "$archive.partial" && mv -f "$archive.partial" "$archive" || { echo "could not finalise the archive"; exit 1; }
+    echo "ROWS=${rows}"
+  ); rc=$?
+  if [ "$rc" -ne 0 ]; then
+    fail "$set" "${out:-snapshot failed} - nothing pruned"
+    return
+  fi
+  rows=${out##*ROWS=}
+  verify_archive "$set" "$archive" -tzf || return
+  prune "$set" "$dir" "${set}_[0-9]*.tar.gz" "$(get "$set" keep)"
+  write_status "$set" "$archive" "members=$MEMBERS" "rows_${table:-none}=$rows"
+  log "ok   $set: $(basename "$archive") $(du -h "$archive" | cut -f1), $MEMBERS members, ${table:+$table=$rows, }quick_check ok, pruned $PRUNED"
+}
+
+# ------------------------------------------------------------------- dir ----
+run_dir() {
+  local set=$1 dir root archive err i
+  dir="$BASE/$set"; root=$(get "$set" root); archive="$dir/${set}_$TS.tar.gz"
+  ensure_dir "$dir" || { fail "$set" "cannot create $dir"; return; }
+  clean_partials "$dir"
+  local -a inc=() args=()
+  read -ra inc <<< "$(get "$set" include)"
+  for i in "${inc[@]}"; do
+    [ -e "$root/$i" ] || { fail "$set" "$root/$i is missing - nothing pruned"; return; }
+  done
+  for i in $(get "$set" exclude); do args+=("--exclude=$i"); done
+  if ! tar_retry err -czf "$archive.partial" "${args[@]}" -C "$root" -- "${inc[@]}"; then
+    rm -f -- "$archive.partial"
+    fail "$set" "$err - nothing pruned"; return
+  fi
+  chmod 600 "$archive.partial" && mv -f "$archive.partial" "$archive" || { fail "$set" "could not finalise the archive"; return; }
+  verify_archive "$set" "$archive" -tzf || return
+  prune "$set" "$dir" "${set}_[0-9]*.tar.gz" "$(get "$set" keep)"
+  write_status "$set" "$archive" "members=$MEMBERS"
+  log "ok   $set: $(basename "$archive") $(du -h "$archive" | cut -f1), $MEMBERS members, pruned $PRUNED"
+}
+
+# --------------------------------------------------------------- ha-link ----
+is_open() { # is any process holding this file open? (works across containers:
+  local hit    # /proc/<pid>/fd links resolve to the inode, whatever the namespace)
+  set +f
+  hit=$(timeout 60 find -L /proc/[0-9]*/fd -maxdepth 1 -samefile "$1" -print -quit 2>/dev/null)
+  set -f
+  [ -n "$hit" ]
+}
+
+run_ha_link() {
+  local set=$1 dir src base dst min_age max_age pattern listing re newest=0 newest_file="" \
+        linked=0 present=0 skipped=0 bad=0 mt now
+  dir="$BASE/$set"; src=$(get "$set" source); pattern=$(get "$set" pattern '*.tar')
+  min_age=$(get "$set" min_age_min 10); max_age=$(get "$set" max_age_h 48)
+  ensure_dir "$dir" || { fail "$set" "cannot create $dir"; return; }
+  [ -d "$src" ] || { fail "$set" "source $src does not exist - nothing pruned"; return; }
+  while IFS= read -r -d '' f; do
+    base=${f##*/}; dst="$dir/$base"; mt=$(stat -c %Y "$f")
+    if is_open "$f"; then log "  $set: $base is open by a process - skipped this run"; skipped=$((skipped + 1)); continue; fi
+    if [ -e "$dst" ] && [ "$(stat -c %d:%i "$f")" = "$(stat -c %d:%i "$dst")" ]; then
+      present=$((present + 1))
+    elif [ -e "$dst" ] && [ "$(stat -c %s "$f")" = "$(stat -c %s "$dst")" ]; then
+      present=$((present + 1))   # a full copy made by the old backup-pi.sh
+    else
+      if ! listing=$(tar -tf "$f" 2>/dev/null); then
+        fail "$set" "$base: tar listing unreadable (incomplete or corrupt) - not linked"; bad=$((bad + 1)); continue
+      fi
+      for re in $(get "$set" require); do
+        grep -qE -- "$re" <<< "$listing" || { fail "$set" "$base has no member matching '$re' - not linked"; bad=$((bad + 1)); continue 2; }
+      done
+      # a same-named but different-sized file here is a partial copy from the old
+      # script's race: replace it with the finished backup (atomically)
+      if ! { ln -- "$f" "$dir/.$base.link.$$" && mv -f -- "$dir/.$base.link.$$" "$dst"; }; then
+        rm -f -- "$dir/.$base.link.$$"
+        fail "$set" "$base: hardlink failed - nothing pruned"; return
+      fi
+      linked=$((linked + 1))
+    fi
+    chmod 600 -- "$dst" 2>/dev/null
+    if [ "$mt" -gt "$newest" ]; then newest=$mt; newest_file=$dst; fi
+  done < <(find "$src" -maxdepth 1 -type f -name "$pattern" -mmin +"$min_age" -print0)
+  now=$(date +%s)
+  if [ "$newest" -eq 0 ]; then fail "$set" "no finished backup found in $src - nothing pruned"; return; fi
+  if [ $(( (now - newest) / 3600 )) -ge "$max_age" ]; then
+    fail "$set" "newest finished backup is $(( (now - newest) / 3600 ))h old (limit ${max_age}h) - is the HA automatic backup still on? Nothing pruned"
+    return
+  fi
+  [ "$bad" -gt 0 ] && return   # already failed; keep everything
+  prune "$set" "$dir" "$pattern" "$(get "$set" keep)"
+  write_status "$set" "$newest_file" "linked_now=$linked" "already=$present" "skipped_open=$skipped"
+  log "ok   $set: newest $(basename "$newest_file") ($(( (now - newest) / 3600 ))h old), linked $linked new, $present already present, skipped $skipped open, pruned $PRUNED"
+}
+
+# ----------------------------------------------------------------- files ----
+gen_git_bundle() { # <outdir> <set>
+  local out=$1 set=$2 repo user
+  repo=$(get "$set" repo); user=$(get "$set" repo_user)
+  [ -d "$repo/.git" ] && [ -n "$user" ] || { echo "repo/repo_user not set or not a git repo"; return 1; }
+  # git runs as the repo owner: root must not write into (or trust) a user repo
+  runuser -u "$user" -- git -C "$repo" bundle create - --all > "$out/docker.bundle" 2>/dev/null || { echo "git bundle create failed"; return 1; }
+  git -c safe.directory="$repo" -C "$repo" bundle verify -q "$out/docker.bundle" >/dev/null 2>&1 || { echo "git bundle verify failed"; return 1; }
+  runuser -u "$user" -- git -C "$repo" log -1 --format='%H %cI %s' > "$out/git-head.txt" 2>/dev/null
+  runuser -u "$user" -- git -C "$repo" status --porcelain > "$out/git-status.txt" 2>/dev/null
+  if [ -s "$out/git-status.txt" ]; then
+    log "  note: $repo has uncommitted changes ($(grep -c . "$out/git-status.txt") paths) - the bundle holds committed state only"
+  fi
+  return 0
+}
+gen_crontabs() {
+  local out=$1 u
+  for u in root $(ls /var/spool/cron/crontabs 2>/dev/null); do
+    [ -f "$out/crontab-$u.txt" ] && continue
+    crontab -u "$u" -l > "$out/crontab-$u.txt" 2>/dev/null || echo "# no crontab for $u" > "$out/crontab-$u.txt"
+  done
+  return 0
+}
+gen_packages() {
+  local out=$1
+  dpkg --get-selections > "$out/dpkg-selections.txt" || return 1
+  dpkg-query -W -f='${Package}\t${Version}\t${Architecture}\n' > "$out/dpkg-versions.txt" || return 1
+  apt-mark showmanual > "$out/apt-manual.txt" 2>/dev/null
+  return 0
+}
+gen_docker() { # names, images and digests only - never full inspect (env = secrets)
+  local out=$1
+  {
+    printf '# container\timage\timage-id\tstate\tcompose-project\n'
+    timeout 60 docker ps -a --format '{{.Names}}\t{{.Image}}\t{{.ID}}\t{{.State}}\t{{.Label "com.docker.compose.project"}}'
+    printf '\n# image-id\trepo-tags\trepo-digests (pull by digest to roll back)\n'
+    timeout 60 docker image ls -q --no-trunc | sort -u | while read -r id; do
+      timeout 20 docker image inspect --format '{{.Id}}\t{{join .RepoTags ","}}\t{{join .RepoDigests ","}}' "$id"
+    done
+    printf '\n# containers: name -> image id in use\n'
+    timeout 60 docker ps -aq | while read -r c; do
+      timeout 20 docker inspect --format '{{.Name}}\t{{.Config.Image}}\t{{.Image}}' "$c"
+    done
+  } > "$out/docker-images.txt" 2>/dev/null
+  grep -q $'\t' "$out/docker-images.txt"
+}
+gen_sysinfo() {
+  local out=$1
+  {
+    echo "# generated $(date -Is) on $(hostname)"; uname -a; echo
+    cat /etc/os-release; echo
+    lsblk -o NAME,SIZE,FSTYPE,UUID,PARTUUID,MOUNTPOINT; echo
+    ip -br addr; ip route; echo
+    ufw status verbose 2>/dev/null; echo
+    systemctl list-unit-files --state=enabled --no-pager --no-legend; echo
+    timeout 30 docker network ls; echo
+    timeout 30 docker volume ls
+  } > "$out/sysinfo.txt" 2>&1
+  return 0
+}
+
+run_files() {
+  local set=$1 dir archive out rc err p m g
+  dir="$BASE/$set"; archive="$dir/${set}_$TS.tar.gz"
+  ensure_dir "$dir" || { fail "$set" "cannot create $dir"; return; }
+  clean_partials "$dir"
+  out=$(
+    for m in $(get "$set" must); do [ -e "$m" ] || { echo "required path $m is missing"; exit 1; }; done
+    declare -A seen=(); rel=(); matches=()
+    for p in $(get "$set" paths); do
+      set +f; shopt -s nullglob
+      # shellcheck disable=SC2206  # expanding the glob is the point
+      matches=( $p )
+      shopt -u nullglob; set -f
+      for m in "${matches[@]}"; do
+        [ -e "$m" ] || [ -L "$m" ] || continue
+        m=${m#/}
+        case "$m" in ''|-*) echo "refusing odd path '$m'"; exit 1 ;; esac
+        [ -n "${seen[$m]:-}" ] && continue
+        seen[$m]=1; rel+=("$m")
+      done
+    done
+    [ ${#rel[@]} -gt 0 ] || { echo "no path matched"; exit 1; }
+    args=()
+    for p in $(get "$set" exclude); do args+=("--exclude=$p"); done
+    args+=(-C / "${rel[@]}")
+    gens=$(get "$set" generate)
+    if [ -n "$gens" ]; then
+      TMP=$(mktemp -d "${TMPDIR:-/tmp}/homelab-backup.$set.XXXXXX") || { echo "mktemp failed"; exit 1; }
+      trap 'rm -rf "$TMP"' EXIT
+      mkdir -m 700 "$TMP/generated" || { echo "mkdir failed"; exit 1; }
+      for g in $gens; do
+        msg=$("gen_${g//-/_}" "$TMP/generated" "$set") || { echo "generator $g failed: $msg"; exit 1; }
+        [ -n "$msg" ] && printf '%s\n' "$msg" >&2
+      done
+      args+=(-C "$TMP" generated)
+    fi
+    tar_retry err -czf "$archive.partial" "${args[@]}" || { rm -f "$archive.partial"; echo "$err"; exit 1; }
+    chmod 600 "$archive.partial" && mv -f "$archive.partial" "$archive" || { echo "could not finalise the archive"; exit 1; }
+    echo "PATHS=${#rel[@]}"
+  ); rc=$?
+  if [ "$rc" -ne 0 ]; then
+    fail "$set" "${out:-archive failed} - nothing pruned"; return
+  fi
+  verify_archive "$set" "$archive" -tzf || return
+  prune "$set" "$dir" "${set}_[0-9]*.tar.gz" "$(get "$set" keep)"
+  write_status "$set" "$archive" "members=$MEMBERS"
+  log "ok   $set: $(basename "$archive") $(du -h "$archive" | cut -f1), $MEMBERS members from ${out##*PATHS=} paths, pruned $PRUNED"
+}
+
+# ----------------------------------------------------------------- adhoc ----
+expire_adhoc() {
+  local d="$BASE/adhoc" e n=0
+  [ -d "$d" ] && [ ! -L "$d" ] || return 0
+  while IFS= read -r -d '' e; do
+    log "  adhoc: expiring $(basename "$e") (older than ${ADHOC_DAYS} days)"
+    rm -rf -- "$e" && n=$((n + 1))
+  done < <(find "$d" -mindepth 1 -maxdepth 1 -ctime +"$ADHOC_DAYS" -print0)
+  log "ok   adhoc: expired $n entries older than ${ADHOC_DAYS} days"
+}
+
+# ------------------------------------------------------------------ main ----
+mode=run; only=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --list-sets) mode=list ;;
+    --check-config) mode=check ;;
+    --only) shift; only=${1:-} ;;
+    --only=*) only=${1#--only=} ;;
+    -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
+    *) echo "unknown argument: $1" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+parse_config || exit 2
+validate_config || exit 2
+
+if [ "$mode" = list ]; then
+  for s in "${SETS[@]}"; do printf '%s\t%s\t%s\t%s\n' "$s" "$(get "$s" type)" "$(get "$s" keep)" "$(get "$s" max_age_h 48)"; done
+  exit 0
+fi
+if [ "$mode" = check ]; then echo "config OK: ${#SETS[@]} sets (${SETS[*]})"; exit 0; fi
+
+[ "$(id -u)" = 0 ] || { echo "must run as root" >&2; exit 2; }
+[ -d "$BASE" ] || { echo "backup base $BASE does not exist" >&2; exit 2; }
+
+exec 8>"$LOCK" || exit 2
+flock -n 8 || { echo "FAILED engine: another homelab-backup run is still in progress"; exit 1; }
+
+run_sets=("${SETS[@]}")
+if [ -n "$only" ]; then
+  run_sets=()
+  for s in ${only//,/ }; do
+    [ -n "${C[$s.__line]+x}" ] && [ "$s" != defaults ] || { echo "unknown set: $s" >&2; exit 2; }
+    run_sets+=("$s")
+  done
+fi
+
+log "homelab-backup $TS: ${#run_sets[@]} sets -> $BASE"
+for s in "${run_sets[@]}"; do
+  PRUNED=0; MEMBERS=0
+  case "$(get "$s" type)" in
+    sqlite)  run_sqlite "$s" ;;
+    dir)     run_dir "$s" ;;
+    ha-link) run_ha_link "$s" ;;
+    files)   run_files "$s" ;;
+  esac
+done
+[ -z "$only" ] && expire_adhoc
+
+dur=$(( $(date +%s) - START ))
+if [ ${#FAILED[@]} -gt 0 ]; then
+  log "BACKUP RUN HAD FAILURES (${#FAILED[@]} of ${#run_sets[@]} sets, ${dur}s). Older archives of failed sets were kept."
+  exit 1
+fi
+log "backup run OK: ${#run_sets[@]} sets in ${dur}s"
+exit 0

@@ -1,0 +1,48 @@
+#!/bin/bash
+# homelab-heartbeat-gate - may homelab-heartbeat ping healthchecks.io this time?
+#
+# Runs as root before every ping (ExecStartPre=+ in homelab-heartbeat.service;
+# the "+" gives it full privileges although the ping itself runs as a DynamicUser).
+#   exit 0  -> the ping is sent
+#   exit 1  -> NO ping: the unit fails with the reason in its journal, and
+#              healthchecks.io alerts once pings have been missing for its period
+#              + grace (10 + 10 min)
+#
+# The ping alone only proves "the Pi is up and online". Withholding it also turns
+# two otherwise silent failures into that same outside alert:
+#   1. Uptime Kuma is not healthy. Kuma is what alerts for every endpoint; a hung
+#      or crashed Kuma would otherwise be noticed only by the next 07:30 health run.
+#      Skipped while /run/homelab/maintenance exists (Kuma may be recreated then).
+#   2. homelab-health has not completed a real run for more than 29 h. It rewrites
+#      /var/lib/homelab/health/kernel-scan on every real run (dry runs write
+#      nothing), so a stopped timer or a checker that dies early shows up here.
+#      A missing stamp (fresh install) is not an alarm.
+#
+# Log: journalctl -u homelab-heartbeat (lines "... withholding heartbeat").
+# Test overrides (never set in the unit): HOMELAB_MAINT_FLAG, HOMELAB_GATE_KUMA,
+# HOMELAB_GATE_HEALTH_STAMP, HOMELAB_GATE_HEALTH_MAX_AGE.
+set -uo pipefail
+
+MAINT_FLAG=${HOMELAB_MAINT_FLAG:-/run/homelab/maintenance}
+KUMA=${HOMELAB_GATE_KUMA:-uptime-kuma}
+HEALTH_STAMP=${HOMELAB_GATE_HEALTH_STAMP:-/var/lib/homelab/health/kernel-scan}
+HEALTH_MAX_AGE=${HOMELAB_GATE_HEALTH_MAX_AGE:-104400}   # 29 h: the daily 07:30 run plus slack
+
+if [ -e "$MAINT_FLAG" ]; then
+  echo "maintenance flag $MAINT_FLAG present - Kuma condition skipped"
+else
+  st=$(timeout 20 docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck/{{.State.Status}}{{end}}' "$KUMA" 2>/dev/null)
+  if [ "$st" != healthy ]; then
+    echo "$KUMA is '${st:-missing or docker not answering}' - withholding heartbeat (healthchecks.io alerts if this lasts ~20 min)"
+    exit 1
+  fi
+fi
+
+if [ -e "$HEALTH_STAMP" ]; then
+  age=$(( $(date +%s) - $(stat -c %Y "$HEALTH_STAMP" 2>/dev/null || date +%s) ))
+  if [ "$age" -gt "$HEALTH_MAX_AGE" ]; then
+    echo "homelab-health has not completed a real run for $(( age / 3600 ))h (limit $(( HEALTH_MAX_AGE / 3600 ))h; stamp $HEALTH_STAMP) - withholding heartbeat. Check: systemctl list-timers homelab-health.timer; journalctl -u homelab-health -n 30"
+    exit 1
+  fi
+fi
+exit 0
