@@ -1,0 +1,14 @@
+[Unit]
+Description=Wake the caretaker when Uptime Kuma marks a monitor DOWN (Kuma's own pushes bypass homelab-notify)
+Documentation=file:///home/pi/docker/README.md
+OnFailure=homelab-failure@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/kuma-wake.sh
+ExecStartPost=-/usr/local/bin/homelab-notify.sh --resolve unit-failed-%n default "%n OK again" "The latest run of %n succeeded."
+TimeoutStartSec=60
+# Runs every 2 min: keep its routine start/finish lines out of the journal on the
+# flash stick (failures and caretaker-wake's "delivered" lines are still logged).
+LogLevelMax=notice
+Nice=10

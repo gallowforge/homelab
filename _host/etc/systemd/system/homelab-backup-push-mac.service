@@ -1,0 +1,11 @@
+[Unit]
+Description=Push the travelling backup sets straight to the MacBook (off-stick copy without the PC)
+Documentation=file:///home/pi/docker/README.md
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/homelab-backup-push-mac
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=30min

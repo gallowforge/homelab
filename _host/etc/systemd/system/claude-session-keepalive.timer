@@ -1,0 +1,11 @@
+[Unit]
+Description=Check every 10 min that the always-on Claude Code session is alive
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=10min
+AccuracySec=1min
+Unit=claude-session-keepalive.service
+
+[Install]
+WantedBy=timers.target

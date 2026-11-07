@@ -1,0 +1,47 @@
+#
+# rules.input-after
+#
+# Rules that should be run after the ufw command line added rules. Custom
+# rules should be added to one of these chains:
+#   ufw-after-input
+#   ufw-after-output
+#   ufw-after-forward
+#
+
+# Don't delete these required lines, otherwise there will be errors
+*filter
+:ufw-after-input - [0:0]
+:ufw-after-output - [0:0]
+:ufw-after-forward - [0:0]
+# End required lines
+
+# don't log noisy services by default
+-A ufw-after-input -p udp --dport 137 -j ufw-skip-to-policy-input
+-A ufw-after-input -p udp --dport 138 -j ufw-skip-to-policy-input
+-A ufw-after-input -p tcp --dport 139 -j ufw-skip-to-policy-input
+-A ufw-after-input -p tcp --dport 445 -j ufw-skip-to-policy-input
+-A ufw-after-input -p udp --dport 67 -j ufw-skip-to-policy-input
+-A ufw-after-input -p udp --dport 68 -j ufw-skip-to-policy-input
+
+# don't log noisy broadcast
+-A ufw-after-input -m addrtype --dst-type BROADCAST -j ufw-skip-to-policy-input
+
+# don't delete the 'COMMIT' line or these rules won't be processed
+COMMIT
+
+# ---- homelab (2026-09-17 closeout): Docker-published ports vs the outside ----
+# Docker DNATs published ports (Caddy's 8443-8453, any app LAN port) in FORWARD, so ufw's
+# INPUT rules never see them. FORWARD jumps to DOCKER-USER first; declaring the
+# chain here flushes and refills it at every ufw start/reload (dockerd never
+# empties it). NEW connections arriving on eth0 from outside the LAN are dropped;
+# replies, the LAN, the tailnet (tailscale0) and container traffic (bridges) pass
+# on to Docker's own rules. Rollback: remove this block, sudo ufw reload,
+# sudo iptables -F DOCKER-USER.
+*filter
+:DOCKER-USER - [0:0]
+-A DOCKER-USER -m conntrack --ctstate RELATED,ESTABLISHED -j RETURN
+-A DOCKER-USER ! -i eth0 -j RETURN
+-A DOCKER-USER -i eth0 -s 192.168.1.0/24 -j RETURN
+-A DOCKER-USER -i eth0 -m conntrack --ctstate NEW -j DROP
+-A DOCKER-USER -j RETURN
+COMMIT

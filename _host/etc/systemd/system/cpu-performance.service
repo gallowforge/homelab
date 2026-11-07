@@ -1,0 +1,14 @@
+# 2026-10-20 (owner: "as fast as possible all the time, 24/7"): keep all four cores at full clock
+# (2.4 GHz) instead of the ondemand governor's idle downclocking, so a burst of DNS lookups never
+# waits for the clock to ramp up. Measured headroom: 51 C, never throttled, 5.07 V supply.
+[Unit]
+Description=CPU governor: performance (full clock 24/7)
+After=sysinit.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo performance > $g; done'
+
+[Install]
+WantedBy=multi-user.target

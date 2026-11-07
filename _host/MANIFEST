@@ -1,0 +1,65 @@
+# _host/MANIFEST - host files tracked in this repo.
+# <path under _host/ = live path>   <mode> <owner> <group> <after change>
+#   after change: daemon-reload | tmpfiles | - | anything else is printed as a
+#   manual follow-up by install.sh --apply (never run automatically)
+# Crontabs:  crontab/<name>  crontab <user> - -   (none tracked here: every job is a timer)
+# ignore <live path>: a known non-homelab file in a scanned directory
+usr/local/bin/claude-session-ensure.sh           0755 root root -
+usr/local/bin/caretaker-wake.sh                  0755 root root -
+usr/local/bin/kuma-wake.sh                       0755 root root -
+usr/local/bin/homelab-health.sh                  0755 root root -
+usr/local/bin/homelab-notify.sh                  0755 root root -
+usr/local/bin/renew-tailscale-cert.sh            0755 root root -
+usr/local/sbin/homelab-backup                    0755 root root -
+usr/local/sbin/homelab-backup-push-mac           0755 root root -
+usr/local/sbin/homelab-failure-notify            0755 root root -
+usr/local/sbin/homelab-heartbeat-gate            0755 root root -
+usr/local/bin/tv-mood                            0755 root root -
+usr/local/bin/hyperhdr-guard.sh                  0755 root root -
+usr/local/lib/room-show.py                       0755 root root -
+usr/local/bin/claude-login-check.sh             0755 root root -
+etc/homelab/backups.conf                         0644 root root -
+etc/systemd/system/adguard-pin.service         0644 root root daemon-reload
+etc/systemd/system/adguard-pin.timer           0644 root root daemon-reload
+etc/systemd/system/homelab-health.service        0644 root root daemon-reload
+etc/systemd/system/homelab-health.timer          0644 root root daemon-reload
+etc/systemd/system/tailscale-cert-renew.service  0644 root root daemon-reload
+etc/systemd/system/tailscale-cert-renew.timer    0644 root root daemon-reload
+etc/systemd/system/homelab-backup.service        0644 root root daemon-reload
+etc/systemd/system/homelab-backup.timer          0644 root root daemon-reload
+etc/systemd/system/homelab-backup-push-mac.service 0644 root root daemon-reload
+etc/systemd/system/homelab-backup-push-mac.timer 0644 root root daemon-reload
+etc/systemd/system/homelab-restore-test.service 0644 root root daemon-reload
+etc/systemd/system/homelab-restore-test.timer 0644 root root daemon-reload
+etc/systemd/system/homelab-failure@.service      0644 root root daemon-reload
+etc/systemd/system/homelab-heartbeat.service     0644 root root daemon-reload
+etc/systemd/system/homelab-heartbeat.timer       0644 root root daemon-reload
+etc/systemd/system/claude-session.service        0644 root root daemon-reload
+etc/systemd/system/claude-session-keepalive.service 0644 root root daemon-reload
+etc/systemd/system/claude-session-keepalive.timer 0644 root root daemon-reload
+etc/systemd/system/caretaker-tick.service        0644 root root daemon-reload
+etc/systemd/system/caretaker-tick.timer          0644 root root daemon-reload
+etc/systemd/system/kuma-wake.service             0644 root root daemon-reload
+etc/systemd/system/kuma-wake.timer               0644 root root daemon-reload
+etc/docker/daemon.json                           0644 root root sudo dockerd --validate --config-file /etc/docker/daemon.json && sudo systemctl reload docker  (NEVER restart docker)
+etc/fail2ban/jail.local                          0644 root root sudo fail2ban-client reload
+etc/ufw/user.rules                               0640 root root sudo ufw reload
+etc/ufw/user6.rules                              0640 root root sudo ufw reload
+etc/ufw/after.rules                              0640 root root sudo ufw reload
+etc/sysctl.d/90-homelab.conf                    0644 root root sysctl-p
+etc/tmpfiles.d/homelab.conf                      0644 root root tmpfiles
+etc/systemd/journald.conf.d/10-homelab.conf      0644 root root sudo systemctl restart systemd-journald && sudo journalctl --flush
+# secrets: exists live, never in git (names in etc/homelab/secrets.env.example)
+ignore etc/homelab/secrets.env
+etc/systemd/system/tv-mood.service               0644 root root daemon-reload
+etc/systemd/system/hyperhdr-guard.service         0644 root root daemon-reload
+etc/systemd/system/hyperhdr-guard.timer           0644 root root daemon-reload
+etc/systemd/system/zram-swap.service 0644 root root daemon-reload
+etc/systemd/system/cpu-performance.service      0644 root root daemon-reload
+etc/systemd/system/eth-ring.service              0644 root root daemon-reload
+etc/systemd/system/hyperhdr@.service.d/limits.conf 0644 root root daemon-reload
+etc/systemd/system/claude-login-check.service   0644 root root daemon-reload
+etc/systemd/system/claude-login-check.timer     0644 root root daemon-reload
+usr/local/bin/homelab-netprobe                  0755 root root -
+etc/systemd/system/homelab-netprobe.service     0644 root root daemon-reload
+etc/systemd/system/homelab-netprobe.timer       0644 root root daemon-reload

@@ -1,0 +1,17 @@
+[Unit]
+Description=Connection-quality sample: router, nearby and far-away servers (evidence for "is it the ISP?")
+Documentation=file:///home/pi/docker/README.md
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/homelab-netprobe probe
+TimeoutStartSec=60
+# Runs every 2 min: keep its routine start/finish lines out of the journal on the
+# flash stick (failures are still logged and reported by systemctl --failed).
+LogLevelMax=notice
+Nice=10
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/run/homelab

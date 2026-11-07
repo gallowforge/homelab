@@ -1,0 +1,10 @@
+[Unit]
+Description=Connection-quality sample every 2 minutes (homelab-netprobe, kept in RAM)
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=2min
+AccuracySec=10s
+
+[Install]
+WantedBy=timers.target

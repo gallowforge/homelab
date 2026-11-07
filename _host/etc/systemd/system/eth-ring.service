@@ -1,0 +1,17 @@
+# 2026-10-20 wellness check (owner: "blazing fast, full speed all the time"): the Pi 5 NIC (macb)
+# boots with a 512-packet receive ring out of 8192 possible; eth0 had counted 21,175 receive drops
+# (rx_resource_errors = ring full) since boot, most likely during the 2026-10-20 HyperHDR overload.
+# A 4096 ring absorbs bursts (Syncthing on the LAN, streams, DNS storms) for ~8 MB of RAM.
+# Applying it resets the link for about two seconds.
+[Unit]
+Description=eth0 receive ring 4096 (no packet drops on bursts)
+BindsTo=sys-subsystem-net-devices-eth0.device
+After=sys-subsystem-net-devices-eth0.device
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/ethtool -G eth0 rx 4096
+
+[Install]
+WantedBy=multi-user.target

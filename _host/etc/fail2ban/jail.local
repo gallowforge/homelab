@@ -1,0 +1,13 @@
+[DEFAULT]
+bantime = 1h
+findtime = 10m
+maxretry = 5
+backend = systemd
+# Never ban the admin paths: localhost, the home LAN and the tailnet (v4 + v6).
+# The desktop's tailnet IP was banned on 2026-09-08 by agents guessing usernames;
+# SSH is only reachable from these networks anyway (ufw), and is key-only.
+ignoreip = 127.0.0.1/8 ::1 192.168.1.0/24 100.64.0.0/10 fd7a:115c:a1e0::/48
+
+[sshd]
+enabled = true
+port = 22

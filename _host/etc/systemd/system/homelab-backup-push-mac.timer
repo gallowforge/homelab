@@ -1,0 +1,11 @@
+[Unit]
+Description=Every 20 min: copy the Pi backups to the MacBook whenever it is reachable
+
+[Timer]
+OnBootSec=15min
+OnCalendar=*:0/20
+RandomizedDelaySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

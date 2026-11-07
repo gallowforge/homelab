@@ -1,0 +1,25 @@
+# 2026-10-20: compressed swap in RAM (1 GB, zstd), used before the 512 MB swap file on the USB
+# stick (/var/swap, kept as a last resort). Swapping to RAM is ~100x faster than to the stick and
+# writes nothing to it.
+[Unit]
+Description=Compressed swap in RAM (zram)
+# Without DefaultDependencies=no this unit is ordered after sysinit.target (implicit) and
+# before swap.target, which sysinit.target itself waits for: an ordering cycle that systemd
+# breaks by dropping a job (found with systemd-analyze verify).
+DefaultDependencies=no
+Before=swap.target shutdown.target
+After=systemd-modules-load.service
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=/sbin/modprobe zram num_devices=1
+ExecStartPre=/bin/sh -c 'echo zstd > /sys/block/zram0/comp_algorithm; echo 1G > /sys/block/zram0/disksize'
+ExecStartPre=/sbin/mkswap /dev/zram0
+ExecStart=/sbin/swapon -p 100 /dev/zram0
+ExecStop=/sbin/swapoff /dev/zram0
+ExecStop=/bin/sh -c 'echo 1 > /sys/block/zram0/reset'
+
+[Install]
+WantedBy=swap.target

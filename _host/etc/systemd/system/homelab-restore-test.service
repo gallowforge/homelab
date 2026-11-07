@@ -1,0 +1,14 @@
+[Unit]
+Description=Weekly restore drill: unpack the newest archive of every backup set into RAM and check it against live
+Documentation=file:///home/pi/docker/README.md
+After=homelab-backup.service docker.service
+# One push quoting the FAIL line if any set does not restore (homelab-failure@).
+OnFailure=homelab-failure@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/home/pi/docker/_host/backup-restore-test.sh
+ExecStartPost=-/usr/local/bin/homelab-notify.sh --resolve unit-failed-%n default "%n OK again" "The latest run of %n succeeded."
+TimeoutStartSec=20min
+Nice=10
+IOSchedulingClass=idle

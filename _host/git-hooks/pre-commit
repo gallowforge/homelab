@@ -1,0 +1,51 @@
+#!/bin/bash
+# homelab pre-commit hook: refuse to commit secrets.
+# Installed as .git/hooks/pre-commit (a copy of _host/git-hooks/pre-commit).
+# Prints file:line and the rule name only - never the matching text.
+# A genuine false positive can be committed with `git commit --no-verify`,
+# after double-checking the line by eye.
+set -uo pipefail
+shopt -s nocasematch
+fail=0
+
+# 1. files that must never be tracked
+while IFS= read -r -d '' f; do
+  case "$f" in
+    *.env.example) ;;
+    .env|*/.env|*.env|*.env.*|*secrets.yaml|*.db|*.db-*|*.sqlite|*.sqlite3|*.sqlite-*|*.pem|*.key|*.p12|*tailscaled.state|*/state/*|*/data/*|*.ntfy-topic|*AdGuardHome.yaml*|*/couchdb-etc/*|*/.storage/*|*id_rsa*|*id_ed25519*)
+      echo "pre-commit: BLOCKED file (secret-bearing type): $f" >&2; fail=1 ;;
+  esac
+done < <(git diff --cached --name-only -z --diff-filter=ACMR)
+
+# 2. added lines that look like secrets
+rules=(
+  'ntfy-topic|ntfy\.sh/[A-Za-z0-9_-]{6,}'
+  'private-key-block|-----BEGIN [A-Z ]*PRIVATE KEY-----'
+  'tailscale-auth-key|tskey-[a-z]+-[A-Za-z0-9]{6,}'
+  'healthchecks-ping-url|hc-ping\.com/[0-9a-f-]{20,}'
+  'secret-assignment|(PASSWORD|PASSWD|SECRET|TOKEN|API_?KEY|APIKEY|AUTH)[A-Z0-9_]*[[:space:]]*=[[:space:]]*["'"'"']?[A-Za-z0-9+_.:@%-][A-Za-z0-9+/_.:@%=-]{5,}'
+  'secret-yaml-key|(password|passwd|secret|token|api_?key)["'"'"']?[[:space:]]*:[[:space:]]*["'"'"']?[A-Za-z0-9+_.@%-][A-Za-z0-9+/_.@%=-]{7,}'
+  'bearer-token|bearer[[:space:]]+[A-Za-z0-9._-]{20,}'
+  'url-credentials|://[^/[:space:]:@]+:[^/[:space:]@]{4,}@'
+)
+
+while IFS=$'\t' read -r file line text; do
+  for r in "${rules[@]}"; do
+    name="${r%%|*}"; re="${r#*|}"
+    if [[ $text =~ $re ]]; then
+      echo "pre-commit: BLOCKED $file:$line matches rule '$name'" >&2
+      fail=1
+    fi
+  done
+done < <(git diff --cached -U0 --no-color --no-ext-diff --diff-filter=ACMR | awk '
+  /^\+\+\+ b\// { file = substr($0, 7); next }
+  /^\+\+\+ /    { file = ""; next }
+  /^@@/         { if (match($0, /\+[0-9]+/)) ln = substr($0, RSTART + 1, RLENGTH - 1) + 0; next }
+  /^\+/         { if (file != "") { t = substr($0, 2); gsub(/\t/, " ", t); print file "\t" ln "\t" t }; ln++; next }
+')
+
+if [ "$fail" != 0 ]; then
+  echo "pre-commit: commit refused - move the secret to /etc/homelab/secrets.env or the stack's .env (see README.md)." >&2
+  exit 1
+fi
+exit 0

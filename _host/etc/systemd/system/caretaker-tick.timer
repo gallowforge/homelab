@@ -1,0 +1,12 @@
+[Unit]
+Description=Wake the caretaker once a day at 08:10
+
+[Timer]
+# after homelab-backup (05:00), Watchtower (05:30) and homelab-health (07:30),
+# so the night's results are all there to read
+OnCalendar=*-*-* 08:10:00
+AccuracySec=1s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

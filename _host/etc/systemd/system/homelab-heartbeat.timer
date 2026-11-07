@@ -1,0 +1,11 @@
+[Unit]
+Description=Heartbeat to healthchecks.io every 5 minutes (the check alerts after 10 min period + 10 min grace)
+
+[Timer]
+OnBootSec=90s
+OnUnitActiveSec=5min
+AccuracySec=30s
+Persistent=false
+
+[Install]
+WantedBy=timers.target

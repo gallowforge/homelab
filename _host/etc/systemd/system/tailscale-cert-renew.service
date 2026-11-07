@@ -1,0 +1,10 @@
+[Unit]
+Description=Renew Tailscale HTTPS cert for Caddy and reload
+After=tailscaled.service docker.service
+OnFailure=homelab-failure@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/renew-tailscale-cert.sh
+ExecStartPost=-/usr/local/bin/homelab-notify.sh --resolve unit-failed-%n default "%n OK again" "The latest run of %n succeeded."
+TimeoutStartSec=10min

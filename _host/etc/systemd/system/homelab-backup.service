@@ -1,0 +1,17 @@
+[Unit]
+Description=Nightly homelab backups (the sets in /etc/homelab/backups.conf)
+Documentation=file:///home/pi/docker/README.md
+After=local-fs.target docker.service
+# OnFailure belongs in [Unit] - systemd silently ignores it under [Service].
+OnFailure=homelab-failure@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/homelab-backup
+# All-clear for a previous failure alert; a silent no-op when none is open.
+ExecStartPost=-/usr/local/bin/homelab-notify.sh --resolve unit-failed-%n default "%n OK again" "The latest run of %n succeeded."
+TimeoutStartSec=1h
+Nice=10
+# The engine's temp copies (DB snapshots, generated files) live in a private
+# /tmp that systemd removes when the run ends, even after a crash.
+PrivateTmp=yes

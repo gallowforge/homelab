@@ -1,0 +1,10 @@
+[Unit]
+Description=Check every 20 min whether the AdGuard Funnel pin is stale (drifted 3x in a week; twice on 2026-10-20)
+
+[Timer]
+OnBootSec=15min
+OnUnitActiveSec=20min
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

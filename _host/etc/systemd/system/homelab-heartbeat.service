@@ -1,0 +1,23 @@
+[Unit]
+Description=Heartbeat ping to healthchecks.io (external dead-man switch: the Pi is up and online)
+Documentation=file:///home/pi/docker/README.md
+Wants=network-online.target
+After=network-online.target
+# Deliberately NO OnFailure=homelab-failure@: healthchecks.io itself alerts
+# (ntfy + email) when the pings stop, so a local alert would only double it.
+
+[Service]
+Type=oneshot
+# HC_PING_URL is a secret. systemd reads the root-only env file before the
+# command starts; curl itself runs as a throwaway unprivileged user.
+EnvironmentFile=/etc/homelab/secrets.env
+DynamicUser=yes
+# The gate runs first, as root ("+"): no ping while Uptime Kuma is unhealthy
+# (skipped under the maintenance flag) or homelab-health has not completed a real
+# run for 29 h, so healthchecks.io also alerts for those. It logs its reason.
+ExecStartPre=+/usr/local/sbin/homelab-heartbeat-gate
+# The URL reaches curl on stdin as a config line ("url = ..."; echo is a shell
+# builtin), so it is never in the process list, this file or the journal.
+# "$$" stops systemd from expanding the variable into the command line itself.
+ExecStart=/bin/sh -c 'if [ -z "$$HC_PING_URL" ]; then echo "HC_PING_URL is not set in /etc/homelab/secrets.env" >&2; exit 1; fi; echo "url = $$HC_PING_URL" | /usr/bin/curl -fsS -m 10 --retry 3 --retry-all-errors -o /dev/null --config -'
+TimeoutStartSec=2min

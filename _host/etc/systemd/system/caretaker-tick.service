@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily wake-up of the caretaker (the always-on Claude Code session)
+Documentation=file:///home/pi/docker/docs/ai-operator.md
+After=claude-session.service
+# Deliberately NO OnFailure=: caretaker-wake.sh always exits 0, and an undelivered
+# wake-up is not worth a push (journalctl -t caretaker-wake shows every delivery).
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/caretaker-wake.sh tick

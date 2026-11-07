@@ -1,0 +1,22 @@
+[Unit]
+Description=tv-mood - Hue ambience from the Samsung TV picture (HyperTizen -> HyperHDR)
+After=network-online.target hyperhdr@hyperhdr.service
+Wants=network-online.target
+
+[Service]
+User=hyperhdr
+ExecStart=/usr/local/bin/tv-mood
+# Optional HDR detection from a Jellyfin-compatible media server (see tv-mood, "HDR"):
+#Environment=MEDIA_SERVER=http://127.0.0.1:8096
+#LoadCredential=media-token:/etc/tv-mood/media-token
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+MemoryMax=128M
+StateDirectory=tv-mood
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,36 @@
+[Unit]
+Description=Always-on Claude Code session in herdr (Remote Control from claude.ai)
+Documentation=https://herdr.dev/docs/persistence-remote/
+Documentation=file:///home/pi/docker/docs/ai-operator.md
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+OnFailure=homelab-failure@%n.service
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi
+Environment=HOME=/home/pi
+Environment=TERM=xterm-256color
+Environment=PATH=/home/pi/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# The herdr server owns the pane; it is the thing that must stay up.
+ExecStart=/home/pi/.local/bin/herdr server
+# '-' on purpose: if the launch helper hiccups the server must NOT be torn down
+# and restarted in a loop - the keepalive timer picks it up within 10 min.
+ExecStartPost=-/usr/local/bin/claude-session-ensure.sh
+Restart=always
+RestartSec=15
+# This Pi serves DNS for the whole house: never let a runaway agent session win
+# the memory race, and keep it off the swap file on the USB stick.
+# Note: Pi OS boots with cgroup_disable=memory, so MemoryHigh/MemoryMax are ignored
+# until the memory cgroup is enabled (a boot-file change). Nice= works today; the
+# health check's low-memory alert (under 800 MB available) is the real guard.
+Nice=5
+MemoryHigh=1500M
+MemoryMax=2G
+
+[Install]
+WantedBy=multi-user.target

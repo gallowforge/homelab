@@ -1,0 +1,12 @@
+[Unit]
+Description=Re-pin the AdGuard rewrite for the public Funnel name when Tailscale's public records moved
+After=docker.service
+OnFailure=homelab-failure@%n.service
+
+[Service]
+Type=oneshot
+User=pi
+Environment=PIN_NAME=public.example-tailnet.ts.net
+ExecStart=/home/pi/docker/adguard/pin-update.sh
+ExecStartPost=-/usr/local/bin/homelab-notify.sh --resolve unit-failed-%n default "%n OK again" "The latest run of %n succeeded."
+TimeoutStartSec=5min

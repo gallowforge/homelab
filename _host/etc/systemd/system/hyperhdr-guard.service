@@ -1,0 +1,6 @@
+[Unit]
+Description=Restart HyperHDR if it leaks past 300 MB
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/hyperhdr-guard.sh

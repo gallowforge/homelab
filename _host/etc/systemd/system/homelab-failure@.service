@@ -1,0 +1,10 @@
+[Unit]
+Description=Alert (ntfy) that %i failed
+Documentation=file:///home/pi/docker/README.md
+# Deliberately NO OnFailure= here: an alert about an alert unit would loop.
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/homelab-failure-notify %i
+# homelab-notify.sh retries a failing send (3 x 20 s) and always exits 0
+TimeoutStartSec=5min

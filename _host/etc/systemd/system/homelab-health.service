@@ -1,0 +1,13 @@
+[Unit]
+Description=Daily homelab health check (backups, containers, storage, TLS, Tailscale, DNS, power, config drift)
+Documentation=file:///home/pi/docker/README.md
+After=docker.service
+OnFailure=homelab-failure@%n.service
+
+[Service]
+Type=oneshot
+# Exits 0 after reporting problems itself (deduped per category); a non-zero
+# exit means the checker itself broke, which OnFailure reports.
+ExecStart=/usr/local/bin/homelab-health.sh
+ExecStartPost=-/usr/local/bin/homelab-notify.sh --resolve unit-failed-%n default "%n OK again" "The latest run of %n succeeded."
+TimeoutStartSec=10min

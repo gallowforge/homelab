@@ -1,0 +1,9 @@
+[Unit]
+Description=Sunday 05:45: restore drill of every backup set (about 10 s, all in RAM)
+
+[Timer]
+OnCalendar=Sun *-*-* 05:45:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

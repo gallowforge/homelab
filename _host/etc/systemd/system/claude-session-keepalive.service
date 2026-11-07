@@ -1,0 +1,16 @@
+[Unit]
+Description=Re-launch the always-on Claude Code session if it exited
+After=claude-session.service
+OnFailure=homelab-failure@%n.service
+
+[Service]
+Type=oneshot
+User=pi
+Group=pi
+WorkingDirectory=/home/pi
+Environment=HOME=/home/pi
+Environment=PATH=/home/pi/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/usr/local/bin/claude-session-ensure.sh
+# all-clear, so a later genuine failure is not eaten by the 20 h dedupe window
+ExecStartPost=-/usr/local/bin/homelab-notify.sh --resolve unit-failed-%n default "%n OK again" "The latest run of %n succeeded."
+
