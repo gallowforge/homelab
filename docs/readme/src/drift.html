@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>install.sh drift</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  .card { padding: 44px 44px 30px; }
+  .term pre .ln { padding-left: 8ch; text-indent: -8ch; }
+  .add { color: var(--green); }
+  .del { color: var(--red); }
+  .hunk { color: var(--blue); }
+  .ctx { color: var(--faint); }
+  .res-ok { color: var(--green); font-weight: 700; background: var(--green-dim); border-radius: 5px; padding: 1px 6px; }
+  .res-bad { color: var(--red); font-weight: 700; background: var(--red-dim); border-radius: 5px; padding: 1px 6px; }
+  @media (max-width: 700px) {
+    .card { padding: 20px 12px 18px; }
+    .term pre .ln { padding-left: 3ch; text-indent: -3ch; }
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="term">
+    <div class="term-bar"><i></i><i></i><i></i><span>pi@raspberrypi: ~/docker</span></div>
+    <pre id="out"></pre>
+  </div>
+  <p class="source">real output of <b>_host/install.sh</b> against a sandboxed copy of the host (scripts/readme-demo.sh)</p>
+</div>
+<script src="common.js"></script>
+<script>
+  const P = '<span class="p">pi@raspberrypi:~/docker$</span> ';
+  const fold = (t) => `<span class="fold">&hellip; ${t}</span>`;
+  const col = (l) => {
+    const h = esc(l);
+    if (/^OK /.test(l)) return h.replace(/^OK/, '<span class="ok b">OK</span>');
+    if (/^(DIFF|MISSING|META)/.test(l)) return h.replace(/^(\S+)(\s+)(.*)$/, '<span class="warn b">$1</span>$2<span class="ink b">$3</span>');
+    if (/^RESULT: no drift/.test(l)) return `<span class="res-ok">${h}</span>`;
+    if (/^RESULT:/.test(l)) return `<span class="res-bad">${h}</span>`;
+    if (/^Follow-up/.test(l)) return `<span class="am b">${h}</span>`;
+    if (/^ {8}installed/.test(l)) return h.replace(/installed/, '<span class="ok b">installed</span>');
+    if (/^ {8}---/.test(l)) return `<span class="del">${h}</span>`;
+    if (/^ {8}\+\+\+/.test(l)) return `<span class="add">${h}</span>`;
+    if (/^ {8}@@/.test(l)) return `<span class="hunk">${h}</span>`;
+    if (/^ {8}-/.test(l)) return `<span class="del b">${h}</span>`;
+    if (/^ {8}\+/.test(l)) return `<span class="add b">${h}</span>`;
+    if (/^ {8} /.test(l)) return `<span class="ctx">${h}</span>`;
+    if (/^  \S/.test(l)) return `<span class="am">${h}</span>`;
+    return h;
+  };
+  // keep the first `keep` OK lines of each run of OK lines, fold the rest
+  const compress = (arr, keep) => {
+    const out = []; let run = [];
+    const flush = () => { if (!run.length) return; run.slice(0, keep).forEach((l) => out.push(col(l))); if (run.length > keep) out.push(fold(`${run.length - keep} more entries OK`)); run = []; };
+    for (const l of arr) { if (/^OK /.test(l)) run.push(l); else { flush(); out.push(col(l)); } }
+    flush(); return out;
+  };
+  (async () => {
+    const drift = (await demo("install-drift.txt")).split("\n");
+    const apply = (await demo("install-apply.txt")).split("\n");
+    const clean = (await demo("install-clean.txt")).split("\n");
+    const ap = [col(apply[0]), fold(`the same diff (${apply.filter((l) => /^ {8}(?!installed)/.test(l)).length} lines)`), ...apply.filter((l) => !/^ {8}/.test(l) || /^ {8}installed/.test(l)).slice(1).map(col)];
+    const cl = clean.filter((l) => !/^OK /.test(l)), nOk = clean.length - cl.length;
+    document.getElementById("out").innerHTML = lines([
+      P + '<span class="c">sudo _host/install.sh</span>', ...compress(drift, 2), "",
+      P + '<span class="c">sudo _host/install.sh --apply etc/fail2ban/jail.local</span>', ...ap, "",
+      P + '<span class="c">sudo _host/install.sh</span>', fold(`${nOk} entries OK`), ...cl.map(col)]);
+  })();
+</script>
+</body>
+</html>

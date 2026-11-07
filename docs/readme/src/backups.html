@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>homelab-backup</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  .card { padding: 44px 44px 30px; }
+  .term pre { min-height: 200px; }
+  @media (max-width: 700px) { .card { padding: 20px 12px 18px; } }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="term">
+    <div class="term-bar"><i></i><i></i><i></i><span>pi@raspberrypi: ~</span></div>
+    <pre id="out"></pre>
+  </div>
+  <p class="source">real output of <b>homelab-backup</b> on synthetic data (scripts/readme-demo.sh)</p>
+</div>
+<script src="common.js"></script>
+<script>
+  const P = '<span class="p">pi@raspberrypi:~$</span> ';
+  const line = (l) => {
+    let h = esc(l);
+    if (/^ok /.test(l)) {
+      h = h.replace(/^ok   ([a-z]+):/, '<span class="ok b">ok</span>   <span class="ink b">$1</span>:')
+           .replace(/(quick_check ok)/, '<span class="ok">$1</span>')
+           .replace(/(pruned [1-9]\d*)/, '<span class="am">$1</span>')
+           .replace(/( [0-9.]+[KMG],)/, '<span class="ink">$1</span>')
+           .replace(/((?:monitor|ciphers|user)=\d+)/, '<span class="ink">$1</span>');
+      h = h.replace(/([a-z]+_\d{8}_\d{6}\.tar\.gz|Automatic_backup_[^ ]+\.tar)/, '<span class="mut">$1</span>');
+    } else if (/^FAILED/.test(l)) {
+      h = h.replace(/^FAILED ([a-z]+):/, '<span class="bad">FAILED</span> <span class="ink b">$1</span>:')
+           .replace(/(nothing pruned)/, '<span class="am b">$1</span>');
+    } else if (/^backup run OK/.test(l)) {
+      h = `<span class="ok b">${h}</span>`;
+    } else if (/^BACKUP RUN HAD FAILURES/.test(l)) {
+      h = h.replace(/^(BACKUP RUN HAD FAILURES)/, '<span class="bad">$1</span>')
+           .replace(/(Older archives of failed sets were kept\.)/, '<span class="am">$1</span>');
+    } else if (/^homelab-backup /.test(l)) {
+      h = `<span class="mut">${h}</span>`;
+    }
+    return h;
+  };
+  (async () => {
+    const ok = await demo("backup.txt"), bad = await demo("backup-fail.txt");
+    const block = (t) => t.split("\n").map(line);
+    document.getElementById("out").innerHTML = lines([
+      P + '<span class="c">sudo homelab-backup</span>', ...block(ok), "",
+      P + '<span class="c">sudo mv docker/vaultwarden/data/rsa_key.pem ~/rsa_key.pem.aside</span>',
+      P + '<span class="c">sudo homelab-backup --only vaultwarden</span>', ...block(bad)]);
+  })();
+</script>
+</body>
+</html>

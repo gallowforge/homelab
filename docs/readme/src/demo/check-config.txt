@@ -1,0 +1,1 @@
+config OK: 9 sets (adguard couchdb kuma vaultwarden dockge syncthing homeassistant platform secrets)

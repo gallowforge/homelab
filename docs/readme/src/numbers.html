@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>homelab numbers</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  .card { padding: 46px 40px 42px; }
+  .row { display: grid; grid-template-columns: repeat(6, 1fr); }
+  .n { padding: 4px 14px 4px 20px; }
+  .n + .n { border-left: 1px solid var(--line); }
+  .n:first-child { padding-left: 8px; }
+  .n b { display: block; font: 600 62px/1 var(--serif); letter-spacing: -0.02em; color: var(--ink); white-space: nowrap; }
+  .n b small { font-size: 0.55em; margin-left: 3px; letter-spacing: 0; color: var(--body); }
+  .n.hot b { color: var(--amber); }
+  .n h3 { margin-top: 14px; font: 600 16px/1.2 var(--sans); white-space: nowrap; color: var(--ink); }
+  .n p { margin-top: 5px; font: 400 14px/1.4 var(--sans); white-space: nowrap; color: var(--muted); }
+  @media (max-width: 700px) {
+    .card { padding: 30px 24px 26px; }
+    .row { grid-template-columns: 1fr 1fr; row-gap: 0; }
+    .n, .n:first-child { padding: 22px 6px 22px 18px; }
+    .n:nth-child(odd) { padding-left: 4px; border-left: 0; }
+    .n:nth-child(n+3) { border-top: 1px solid var(--line); }
+    .n b { font-size: 58px; }
+    .n h3 { margin-top: 12px; font-size: 16px; }
+    .n p { font-size: 13.5px; }
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="row">
+    <div class="n"><b>15</b><h3>Services</h3><p>on one Pi 5</p></div>
+    <div class="n"><b>12</b><h3>Backup sets</h3><p>verified every night</p></div>
+    <div class="n"><b>10<small>s</small></b><h3>Restore drill</h3><p>weekly, all in RAM</p></div>
+    <div class="n"><b>77</b><h3>Alert conditions</h3><p>checked every day</p></div>
+    <div class="n"><b>20</b><h3>systemd timers</h3><p>and zero cron jobs</p></div>
+    <div class="n hot"><b>0</b><h3>Port forwards</h3><p>nothing exposed</p></div>
+  </div>
+</div>
+</body>
+</html>

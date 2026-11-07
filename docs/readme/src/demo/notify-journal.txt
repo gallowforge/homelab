@@ -1,0 +1,3 @@
+sent prio=high key=unit-failed-homelab-backup.service title="homelab-backup.service failed on raspberrypi" http=200 attempts=1
+suppressed key=unit-failed-homelab-backup.service title="homelab-backup.service failed on raspberrypi" (already sent 14 min ago; repeat every 20h)
+resolved key=unit-failed-homelab-backup.service prio=default title="homelab-backup.service OK again" http=200 attempts=1

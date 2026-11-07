@@ -1,5 +1,17 @@
 # Changelog
 
+## README and visuals
+
+- The README was rebuilt around designed images in `docs/readme/`: a hero diagram, the
+  numbers, a status board, the backup engine, the restore drill, the alert path, the drift
+  check and the operator's charter.
+- The terminal images show real output. `scripts/readme-demo.sh` runs the backup engine,
+  the restore drill, `install.sh`, the failure notifier and the caretaker wake-up in a
+  bubblewrap sandbox on synthetic data; `scripts/readme-visuals.sh` renders the images.
+- The design decisions and the past failures moved to `docs/design-decisions.md` and
+  `docs/past-failures.md`, unchanged in substance.
+- The account name in paths and units is now the placeholder `pi`.
+
 ## Initial public release
 
 A sanitized copy of the private repo that runs the Pi.
@@ -23,8 +35,7 @@ A sanitized copy of the private repo that runs the Pi.
   stubbed tests and gitleaks on every push.
 
 **Left out**
-- A media stack, its public endpoint, a watch-history tracker, and their watchdogs and
-  timers.
+- A few services, their public endpoint, and their watchdogs and timers.
 - Scripts that reach into other personal machines or data.
 - The private runbooks, the operator's charter and its journal. The files in `docs/` are
   condensed public versions.

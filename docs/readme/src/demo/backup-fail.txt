@@ -1,0 +1,3 @@
+homelab-backup 20261107_050002: 1 sets -> /home/pi/backups
+FAILED vaultwarden: required file /home/pi/docker/vaultwarden/data/rsa_key.pem is missing - nothing pruned
+BACKUP RUN HAD FAILURES (1 of 1 sets, 0s). Older archives of failed sets were kept.

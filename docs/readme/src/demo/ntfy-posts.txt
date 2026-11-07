@@ -1,0 +1,14 @@
+Title: homelab-backup.service failed on raspberrypi
+Priority: high
+Tags: rotating_light
+Body: Result: exit-code (exit status 1)
+
+FAILED vaultwarden: required file /home/pi/docker/vaultwarden/data/rsa_key.pem is missing - nothing pruned
+
+More: journalctl -u homelab-backup.service -n 80
+----
+Title: homelab-backup.service OK again
+Priority: default
+Tags: warning
+Body: The latest run of homelab-backup.service succeeded.
+----

@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>restore drill</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  .card { padding: 44px; }
+  .rep { border-radius: 20px; border: 1px solid var(--line2); background: linear-gradient(180deg, #171410, #110f0d); box-shadow: 0 30px 80px rgba(0,0,0,.5); overflow: hidden; }
+  .head { display: flex; align-items: center; gap: 20px; padding: 26px 28px; border-bottom: 1px solid var(--line);
+          background: radial-gradient(500px 160px at 0% 0%, rgba(127,212,143,.10), transparent 70%); }
+  .ring { width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center; flex: none;
+          background: var(--green-dim); border: 1.5px solid rgba(127,212,143,.55); box-shadow: 0 0 30px rgba(127,212,143,.2); }
+  .ring svg { width: 28px; height: 28px; color: var(--green); }
+  .ttl { flex: 1; }
+  .ttl h2 { font: 700 24px/1.1 var(--sans); letter-spacing: -0.02em; }
+  .ttl p { margin-top: 7px; font: 400 14px/1.4 var(--sans); color: var(--muted); }
+  .score { text-align: right; }
+  .score b { font: 600 52px/1 var(--serif); color: var(--green); letter-spacing: -0.02em; }
+  .score b span { color: var(--faint); font-size: .7em; }
+  .score small { display: block; margin-top: 4px; font: 500 13px/1 var(--mono); color: var(--muted); }
+  .rows { padding: 4px 0; }
+  .r { display: grid; grid-template-columns: 22px 140px 70px 1fr; gap: 12px; align-items: start; padding: 11px 28px; }
+  .r + .r { border-top: 1px solid #ffffff0b; }
+  .r .ck { width: 20px; height: 20px; border-radius: 50%; background: var(--green-dim); display: grid; place-items: center; margin-top: 1px; }
+  .r .ck svg { width: 12px; height: 12px; color: var(--green); }
+  .r .set { font: 600 14px/22px var(--mono); color: var(--ink); }
+  .r .ty { justify-self: start; margin-top: 1px; padding: 3px 8px; border-radius: 6px; font: 500 11px/14px var(--mono); color: var(--amber2); background: var(--amber-dim); border: 1px solid rgba(226,145,90,.25); }
+  .r .det { min-width: 0; }
+  .r .arc { display: none; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chips span { padding: 2px 8px; border-radius: 6px; background: #ffffff08; border: 1px solid #ffffff10; font: 400 12.5px/1.45 var(--mono); color: var(--body); }
+  .chips span.g { color: var(--green); border-color: rgba(127,212,143,.22); background: rgba(127,212,143,.06); }
+  .foot { padding: 15px 28px; border-top: 1px solid var(--line); font: 500 12.5px/1.4 var(--mono); color: var(--muted); background: rgba(255,255,255,.015); }
+  .foot b { color: var(--green); font-weight: 600; }
+  @media (max-width: 700px) {
+    .card { padding: 20px 14px; }
+    .head { padding: 18px 18px; gap: 14px; }
+    .ring { width: 44px; height: 44px; }
+    .ring svg { width: 22px; height: 22px; }
+    .ttl h2 { font-size: 20px; }
+    .ttl p { display: none; }
+    .score b { font-size: 38px; }
+    .score small { font-size: 11px; }
+    .r { grid-template-columns: 20px 1fr auto; gap: 6px 10px; padding: 11px 18px; }
+    .r .det { grid-column: 2 / -1; }
+    .r .arc { display: none; }
+    .chips span { font-size: 11px; padding: 2px 7px; }
+    .foot { padding: 13px 18px; font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="rep">
+    <div class="head">
+      <div class="ring"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+      <div class="ttl"><h2>Restore drill</h2><p>Sunday 05:45 &middot; the newest archive of every set, unpacked into RAM and checked against the live data &middot; <span id="arc"></span></p></div>
+      <div class="score"><b id="score"></b><small id="sub"></small></div>
+    </div>
+    <div class="rows" id="rows"></div>
+    <div class="foot" id="foot"></div>
+  </div>
+  <p class="source">real output of <b>_host/backup-restore-test.sh</b> on synthetic data</p>
+</div>
+<script src="common.js"></script>
+<script>
+  const types = { adguard: "dir", couchdb: "dir", kuma: "sqlite", vaultwarden: "sqlite", dockge: "sqlite", syncthing: "dir", homeassistant: "ha-link", platform: "files", secrets: "files" };
+  const tick = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  // split "a, b (c, d), e" on commas that are not inside parentheses
+  const split = (s) => { const out = []; let d = 0, cur = ""; for (const ch of s) { if (ch === "(") d++; if (ch === ")") d--; if (ch === "," && d === 0) { out.push(cur.trim()); cur = ""; } else cur += ch; } if (cur.trim()) out.push(cur.trim()); return out; };
+  const good = /\bok\b|identical|parseable|clones|present|opens|no \.bak|no index/;
+  (async () => {
+    const all = (await demo("restore-drill.txt")).split("\n");
+    const pass = all.filter((l) => /^PASS /.test(l)), fail = all.filter((l) => /^FAIL /.test(l));
+    document.getElementById("rows").innerHTML = pass.map((l) => {
+      const m = l.match(/^PASS ([a-z]+): (\S+): (.*)$/);
+      const chips = split(m[3]).map((c) => `<span class="${good.test(c) ? "g" : ""}">${esc(c)}</span>`).join("");
+      return `<div class="r"><div class="ck">${tick}</div><div class="set">${m[1]}</div><div class="ty">${types[m[1]] || ""}</div><div class="det"><div class="arc">${esc(m[2])}</div><div class="chips">${chips}</div></div></div>`;
+    }).join("");
+    const stamp = (pass[0].match(/_(\d{8}_\d{6})\.tar\.gz/) || [])[1];
+    document.getElementById("arc").textContent = stamp ? `archives ${stamp}` : "";
+    document.getElementById("score").innerHTML = `${pass.length}<span>/${pass.length + fail.length}</span>`;
+    document.getElementById("sub").textContent = `passed · ${fail.length} failed`;
+    document.getElementById("foot").innerHTML = esc(all[all.length - 1]).replace(/(\d+ passed)/, "<b>$1</b>");
+  })();
+</script>
+</body>
+</html>

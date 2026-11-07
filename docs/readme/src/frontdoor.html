@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>homelab status</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  .card { padding: 44px; }
+  .board { border-radius: 20px; border: 1px solid var(--line2); background: linear-gradient(180deg, #171410, #110f0d); box-shadow: 0 30px 80px rgba(0,0,0,.5); overflow: hidden; }
+  .top { display: flex; align-items: center; justify-content: space-between; padding: 22px 26px; border-bottom: 1px solid var(--line); }
+  .host { display: flex; align-items: center; gap: 12px; }
+  .host .lock { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--amber-dim); border: 1px solid rgba(226,145,90,.35); }
+  .host .lock svg { width: 17px; height: 17px; color: var(--amber); }
+  .host b { display: block; font: 600 16px/1.2 var(--sans); }
+  .host small { display: block; margin-top: 3px; font: 500 12.5px/1.2 var(--mono); color: var(--muted); }
+  .all { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-radius: 999px; background: var(--green-dim); border: 1px solid rgba(127,212,143,.35); font: 600 14px/1 var(--sans); color: var(--green); }
+  .meta { display: flex; gap: 26px; padding: 14px 26px; border-bottom: 1px solid var(--line); font: 500 12.5px/1 var(--mono); color: var(--muted); background: rgba(255,255,255,.015); }
+  .meta b { color: var(--ink); font-weight: 600; }
+  .rows { padding: 6px 0; }
+  .r { display: grid; grid-template-columns: 220px 210px 1fr 70px; align-items: center; gap: 22px; padding: 13px 26px; }
+  .r + .r { border-top: 1px solid #ffffff0b; }
+  .r .name { display: flex; align-items: center; gap: 10px; font: 600 14.5px/1.2 var(--sans); }
+  .r .name small { display: block; font: 400 12px/1.2 var(--sans); color: var(--muted); margin-top: 3px; }
+  .r .ep { font: 500 12.5px/1.3 var(--mono); color: var(--body); }
+  .r .ep span { color: var(--amber2); }
+  .bars { display: flex; gap: 2px; height: 24px; align-items: stretch; }
+  .bars i { flex: 1; border-radius: 2px; background: linear-gradient(180deg, #86d996, #5fb872); opacity: .9; }
+  .st { text-align: right; font: 600 13px/1 var(--sans); color: var(--green); }
+  .foot { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); }
+  .foot div { padding: 16px 26px; font: 400 13px/1.4 var(--sans); color: var(--muted); }
+  .foot div + div { border-left: 1px solid var(--line); }
+  .foot b { display: block; font: 600 13.5px/1.3 var(--sans); color: var(--ink); margin-bottom: 2px; }
+  @media (max-width: 700px) {
+    .card { padding: 20px 14px; }
+    .top { padding: 18px 16px; flex-direction: column; align-items: flex-start; gap: 14px; }
+    .host b { font-size: 14px; }
+    .host small { font-size: 11px; }
+    .meta { padding: 12px 16px; gap: 14px; font-size: 11px; flex-wrap: wrap; }
+    .r { grid-template-columns: 1fr auto; gap: 6px 12px; padding: 12px 16px; }
+    .r .name small { display: none; }
+    .r .ep { grid-column: 1 / -1; grid-row: 2; font-size: 11.5px; padding-left: 18px; }
+    .bars { display: none; }
+    .foot { grid-template-columns: 1fr; }
+    .foot div { padding: 13px 16px; }
+    .foot div + div { border-left: 0; border-top: 1px solid var(--line); }
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="board">
+    <div class="top">
+      <div class="host">
+        <div class="lock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg></div>
+        <div><b>raspberrypi.example-tailnet.ts.net</b><small>one TLS front door &middot; tailnet certificate</small></div>
+      </div>
+      <div class="all"><i class="dot"></i>All systems operational</div>
+    </div>
+    <div class="meta"><span><b>13</b> monitors</span><span>every <b>60 s</b></span><span>alert after <b>3</b> failed checks</span><span><b>0</b> ports forwarded</span></div>
+    <div class="rows" id="rows"></div>
+    <div class="foot">
+      <div><b>Away from home</b>Tailscale (WireGuard). The ISP's CGNAT allows nothing inbound anyway.</div>
+      <div><b>At home</b>AdGuard answers the tailnet name with the LAN address: one set of links.</div>
+      <div><b>Docker cannot open a hole</b>DOCKER-USER rules close Docker's bypass of ufw.</div>
+    </div>
+  </div>
+  <p class="source">illustration &middot; placeholder host &middot; ports from <b>caddy/Caddyfile</b></p>
+</div>
+<script>
+  const rows = [
+    ["AdGuard Home", "DNS for the house", "<span>:53</span> DNS query"],
+    ["Vaultwarden", "passwords", "<span>:8452</span> HTTPS via Caddy"],
+    ["Home Assistant", "smart home", "<span>:8443</span> HTTPS via Caddy"],
+    ["CouchDB", "notes sync", "<span>:8450</span> HTTPS via Caddy"],
+    ["Syncthing", "vault replication", "<span>:8453</span> HTTPS via Caddy"],
+    ["AdGuard admin", "filters, rewrites", "<span>:8445</span> HTTPS via Caddy"],
+    ["Dockge", "compose stacks", "<span>:8444</span> HTTPS via Caddy"],
+  ];
+  const bars = '<i></i>'.repeat(90);
+  document.getElementById("rows").innerHTML = rows.map(([n, s, e]) =>
+    `<div class="r"><div class="name"><i class="dot"></i><div>${n}<small>${s}</small></div></div><div class="ep">${e}</div><div class="bars">${bars}</div><div class="st">Up</div></div>`).join("");
+</script>
+</body>
+</html>

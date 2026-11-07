@@ -29,8 +29,8 @@ default carried into someone else's copy.
 **Accepted risks, written down.**
 - Dockge holds `docker.sock`, which is root on the host. It is reached only through Caddy,
   behind its own login.
-- The Pi is the house's only DNS resolver, on purpose (README,
-  [No fallback DNS, on purpose](README.md#no-fallback-dns-on-purpose)).
+- The Pi is the house's only DNS resolver, on purpose
+  ([No fallback DNS, on purpose](docs/design-decisions.md#no-fallback-dns-on-purpose)).
 - The operator is an AI session with root on the Pi, bound by a written charter and
   stoppable with one command ([docs/ai-operator.md](docs/ai-operator.md)).
 - Physical access to the Pi is not defended against; the Pi sits inside the home.

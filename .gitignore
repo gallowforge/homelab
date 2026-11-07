@@ -11,6 +11,8 @@
 !/*/
 /*/*
 !/docs/*.md
+!/docs/readme/
+!/scripts/*.sh
 !/*/docker-compose.yml
 !/*/.env.example
 !/caddy/Caddyfile

@@ -1,0 +1,11 @@
+homelab-backup 20261107_050002: 9 sets -> /home/pi/backups
+ok   adguard: adguard_20261107_050002.tar.gz 4.0K, 2 members, pruned 1
+ok   couchdb: couchdb_20261107_050002.tar.gz 9.9M, 15 members, pruned 1
+ok   kuma: kuma_20261107_050002.tar.gz 244K, 1 members, monitor=13, quick_check ok, pruned 1
+ok   vaultwarden: vaultwarden_20261107_050002.tar.gz 336K, 7 members, ciphers=412, quick_check ok, pruned 1
+ok   dockge: dockge_20261107_050002.tar.gz 4.0K, 1 members, user=1, quick_check ok, pruned 1
+ok   syncthing: syncthing_20261107_050002.tar.gz 4.0K, 4 members, pruned 1
+ok   homeassistant: newest Automatic_backup_2026.11.1_2026-11-07_04.51_51073412.tar (1h old), linked 1 new, 2 already present, skipped 0 open, pruned 1
+ok   platform: platform_20261107_050002.tar.gz 212K, 77 members from 17 paths, pruned 1
+ok   secrets: secrets_20261107_050002.tar.gz 4.0K, 6 members from 6 paths, pruned 1
+backup run OK: 9 sets in 1s
