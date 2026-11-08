@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>homelab: social preview</title>
+<link rel="stylesheet" href="board.css">
+<style>
+  /* 1280 x 640, captured at 1x by scripts/readme-visuals.sh */
+  body { width: 1280px; height: 640px; overflow: hidden; }
+  .panel { position: absolute; inset: 0; border-radius: 0; padding: 0; }
+  .np { position: absolute; left: 64px; top: 58px; display: flex; align-items: center; gap: 20px; }
+  .np .plate { font-size: 24px; letter-spacing: .2em; padding: 11px 34px 10px; }
+  .np .plate.rivets::before { left: 11px; } .np .plate.rivets::after { right: 11px; }
+  .np .plate.rivets::before, .np .plate.rivets::after { width: 7px; height: 7px; margin-top: -3.5px; }
+  .np > span:not(.plate) { font: 600 15px/1.4 var(--disp); font-stretch: 125%; letter-spacing: .2em; color: var(--engrave-3); text-transform: uppercase; }
+  .clock { position: absolute; right: 64px; top: 60px; display: flex; align-items: center; gap: 16px; }
+  .well { padding: 10px 14px 9px; border-radius: 4px; background: #050c13; box-shadow: inset 0 1px 3px rgba(0,0,0,.8), 0 0 0 3px #1a2c3e, 0 0 0 4px #070f17; }
+  .clock .lamp { width: 18px; height: 18px; }
+  h1 { position: absolute; left: 60px; top: 178px; font: 700 82px/0.98 var(--disp); letter-spacing: -0.012em; color: var(--engrave); }
+  h1 span { display: block; }
+  h1 .stop { display: inline-block; width: 18px; height: 18px; margin-left: 6px; border-radius: 50%; background: radial-gradient(circle at 36% 30%, #fff 0 8%, #ffd08a 20%, #f5a63c 48%, #a8620f 100%); box-shadow: 0 0 20px 5px rgba(245,166,60,.45); }
+  .sub { position: absolute; left: 64px; bottom: 60px; width: 640px; font: 400 23px/1.4 var(--disp); color: var(--engrave-2); }
+  .sub b { color: var(--engrave); font-weight: 600; }
+  .art { position: absolute; right: 40px; bottom: 50px; }
+</style>
+</head>
+<body>
+<div class="panel">
+  <div class="np"><span class="plate rivets">Homelab</span><span>one Raspberry Pi 5</span></div>
+  <div class="clock"><span class="well" id="clock"></span><i class="lamp a"></i></div>
+  <h1><span>The house sleeps.</span><span>The station never does<i class="stop"></i></span></h1>
+  <p class="sub">A household platform run like a power station: <b>every file in git, backups restored every week, one push per incident.</b></p>
+  <svg class="art" id="art" width="450" height="222" viewBox="0 0 450 222"></svg>
+</div>
+<script src="common.js"></script>
+<script>
+  document.getElementById("clock").innerHTML = seg("05:00:02", { h: 34, color: "#f5a63c" });
+  K = "S";
+  const w = (x, y) => `<rect x="${x}" y="${y}" width="24" height="24" fill="#08131d" stroke="var(--engrave-2)" stroke-width="1.6"/>`;
+  let g = defs(K);
+  // the house, its one lit window, and the live line out of it to the station's lamps
+  g += `<g transform="translate(0 66)">
+      <path d="M0 62 L64 6 L128 62" fill="none" stroke="var(--engrave)" stroke-width="2.4"/>
+      <path d="M94 32 V10 H108 V44" fill="none" stroke="var(--engrave)" stroke-width="2.4"/>
+      <path d="M14 50 V150 H114 V50" fill="none" stroke="var(--engrave)" stroke-width="2.4"/>
+      <circle cx="64" cy="40" r="7" fill="#08131d" stroke="var(--engrave-2)" stroke-width="1.6"/>
+      ${w(27, 74)}
+      <circle cx="89" cy="86" r="34" fill="#f5a63c" opacity=".3" filter="url(#halo${K})"/>
+      <rect x="77" y="74" width="24" height="24" fill="url(#win${K})" stroke="var(--engrave)" stroke-width="1.6"/>
+      <path d="M89 74 V98 M77 86 H101" stroke="#a65d10" stroke-width="1.4"/>
+      <rect x="52" y="112" width="24" height="38" fill="#08131d" stroke="var(--engrave-2)" stroke-width="1.6"/>
+    </g>`;
+  g += `<path class="ln-live" d="M117 186 H164 V110 H200"/>`;
+  g += `<path d="M204 8 V214" stroke="var(--amber)" stroke-width="9"/>`;
+  ["Home Assistant", "Dockge", "AdGuard", "Uptime Kuma", "CouchDB", "Vaultwarden", "Syncthing"].forEach((n, i) => {
+    const y = 14 + i * 32;
+    g += `<path class="ln-eng" d="M204 ${y} H230"/><rect class="brk-c" x="230" y="${y - 6}" width="12" height="12"/><path class="ln-eng" d="M242 ${y} H254"/>` +
+         lamp(266, y) + T("t2 tf", 284, y + 4, n);
+  });
+  document.getElementById("art").innerHTML = g;
+</script>
+</body>
+</html>

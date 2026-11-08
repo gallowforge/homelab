@@ -2,87 +2,140 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>restore drill</title>
-<link rel="stylesheet" href="base.css">
+<title>homelab: restore drill</title>
+<link rel="stylesheet" href="board.css">
 <style>
-  .card { padding: 44px; }
-  .rep { border-radius: 20px; border: 1px solid var(--line2); background: linear-gradient(180deg, #171410, #110f0d); box-shadow: 0 30px 80px rgba(0,0,0,.5); overflow: hidden; }
-  .head { display: flex; align-items: center; gap: 20px; padding: 26px 28px; border-bottom: 1px solid var(--line);
-          background: radial-gradient(500px 160px at 0% 0%, rgba(127,212,143,.10), transparent 70%); }
-  .ring { width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center; flex: none;
-          background: var(--green-dim); border: 1.5px solid rgba(127,212,143,.55); box-shadow: 0 0 30px rgba(127,212,143,.2); }
-  .ring svg { width: 28px; height: 28px; color: var(--green); }
-  .ttl { flex: 1; }
-  .ttl h2 { font: 700 24px/1.1 var(--sans); letter-spacing: -0.02em; }
-  .ttl p { margin-top: 7px; font: 400 14px/1.4 var(--sans); color: var(--muted); }
-  .score { text-align: right; }
-  .score b { font: 600 52px/1 var(--serif); color: var(--green); letter-spacing: -0.02em; }
-  .score b span { color: var(--faint); font-size: .7em; }
-  .score small { display: block; margin-top: 4px; font: 500 13px/1 var(--mono); color: var(--muted); }
-  .rows { padding: 4px 0; }
-  .r { display: grid; grid-template-columns: 22px 140px 70px 1fr; gap: 12px; align-items: start; padding: 11px 28px; }
-  .r + .r { border-top: 1px solid #ffffff0b; }
-  .r .ck { width: 20px; height: 20px; border-radius: 50%; background: var(--green-dim); display: grid; place-items: center; margin-top: 1px; }
-  .r .ck svg { width: 12px; height: 12px; color: var(--green); }
-  .r .set { font: 600 14px/22px var(--mono); color: var(--ink); }
-  .r .ty { justify-self: start; margin-top: 1px; padding: 3px 8px; border-radius: 6px; font: 500 11px/14px var(--mono); color: var(--amber2); background: var(--amber-dim); border: 1px solid rgba(226,145,90,.25); }
-  .r .det { min-width: 0; }
-  .r .arc { display: none; }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .chips span { padding: 2px 8px; border-radius: 6px; background: #ffffff08; border: 1px solid #ffffff10; font: 400 12.5px/1.45 var(--mono); color: var(--body); }
-  .chips span.g { color: var(--green); border-color: rgba(127,212,143,.22); background: rgba(127,212,143,.06); }
-  .foot { padding: 15px 28px; border-top: 1px solid var(--line); font: 500 12.5px/1.4 var(--mono); color: var(--muted); background: rgba(255,255,255,.015); }
-  .foot b { color: var(--green); font-weight: 600; }
+  .body { display: grid; grid-template-columns: 300px 1fr; gap: 40px; align-items: start; }
+  .inst { display: flex; flex-direction: column; align-items: center; }
+  .inst svg.dial { display: block; filter: drop-shadow(0 14px 24px rgba(0,0,0,.5)); }
+  .insync { margin-top: 18px; display: flex; align-items: center; gap: 10px; font: 650 13px/1 var(--disp); font-stretch: 125%; letter-spacing: .2em; color: var(--green); text-transform: uppercase; }
+  .pair { margin-top: 22px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; }
+  .pair > div { text-align: center; }
+  .dpm { height: 54px; display: flex; align-items: center; justify-content: center; border-radius: 3px; background: linear-gradient(180deg, #03080d, #071019);
+         box-shadow: inset 0 2px 6px rgba(0,0,0,.9), 0 0 0 3px #1a2c3e, 0 0 0 4px #070f17; }
+  .pair small { display: block; margin-top: 10px; font: 600 9.5px/1 var(--disp); font-stretch: 125%; letter-spacing: .2em; color: var(--engrave-3); text-transform: uppercase; }
+  .what { margin-top: 12px; font: 400 10px/1.5 var(--mono); font-stretch: 87.5%; color: var(--engrave-3); text-align: center; }
+
+  .score { display: flex; align-items: flex-end; gap: 14px; padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,.07); }
+  .score .t { padding-bottom: 6px; }
+  .score .t b { display: block; font: 650 15px/1 var(--disp); font-stretch: 125%; letter-spacing: .16em; text-transform: uppercase; color: var(--engrave); }
+  .score .t span { display: block; margin-top: 7px; font: 400 10.5px/1.3 var(--mono); font-stretch: 87.5%; color: var(--engrave-3); }
+  .score .t span em { font-style: normal; color: var(--engrave-2); }
+  .row { display: grid; grid-template-columns: 18px 134px 1fr; gap: 14px; align-items: start; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.05); }
+  .row .lamp { margin-top: 1px; }
+  .row b { font: 650 11.5px/15px var(--disp); font-stretch: 118%; letter-spacing: .08em; text-transform: uppercase; color: var(--engrave); }
+  .row b small { display: block; margin-top: 2px; font: 400 9.5px/1.2 var(--mono); font-stretch: 87.5%; letter-spacing: 0; text-transform: none; color: var(--engrave-3); }
+  .row p { font: 400 11px/15px var(--mono); font-stretch: 80%; color: var(--engrave-3); }
+  .row p em { font-style: normal; color: var(--engrave); }
+  .row p i { font-style: normal; color: var(--engrave-4); padding: 0 4px; }
+  .foot { margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap; }
+
   @media (max-width: 700px) {
-    .card { padding: 20px 14px; }
-    .head { padding: 18px 18px; gap: 14px; }
-    .ring { width: 44px; height: 44px; }
-    .ring svg { width: 22px; height: 22px; }
-    .ttl h2 { font-size: 20px; }
-    .ttl p { display: none; }
-    .score b { font-size: 38px; }
-    .score small { font-size: 11px; }
-    .r { grid-template-columns: 20px 1fr auto; gap: 6px 10px; padding: 11px 18px; }
-    .r .det { grid-column: 2 / -1; }
-    .r .arc { display: none; }
-    .chips span { font-size: 11px; padding: 2px 7px; }
-    .foot { padding: 13px 18px; font-size: 11px; }
+    .body { grid-template-columns: 1fr; gap: 26px; }
+    .inst { display: grid; grid-template-columns: 196px 1fr; gap: 6px 22px; align-items: center; }
+    .inst svg.dial { width: 196px; height: 196px; grid-row: 1 / 4; }
+    .insync { margin-top: 0; font-size: 11.5px; }
+    .pair { margin-top: 0; grid-template-columns: 1fr; gap: 14px; }
+    .pair small { margin-top: 7px; }
+    .what { margin-top: 0; text-align: left; }
+    .row { grid-template-columns: 16px 1fr; gap: 6px 12px; }
+    .row p { grid-column: 2; font-size: 10.5px; }
+    .row b small { display: inline; margin-left: 10px; }
+    .foot .plate { font-size: 10px; }
   }
 </style>
 </head>
 <body>
-<div class="card">
-  <div class="rep">
-    <div class="head">
-      <div class="ring"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
-      <div class="ttl"><h2>Restore drill</h2><p>Sunday 05:45 &middot; the newest archive of every set, unpacked into RAM and checked against the live data &middot; <span id="arc"></span></p></div>
-      <div class="score"><b id="score"></b><small id="sub"></small></div>
-    </div>
-    <div class="rows" id="rows"></div>
-    <div class="foot" id="foot"></div>
+<div class="panel">
+  <div class="rail">
+    <span class="bno">B3</span>
+    <span class="rtitle">Restore drill</span>
+    <span class="rnote">Sundays 05:45 &middot; unpacked into RAM</span>
   </div>
-  <p class="source">real output of <b>_host/backup-restore-test.sh</b> on synthetic data</p>
+
+  <div class="body">
+    <div class="inst">
+      <svg class="dial" width="280" height="280" viewBox="0 0 280 280" id="dial"></svg>
+      <div class="insync"><i class="lamp"></i>Archive in sync with live</div>
+      <div class="pair">
+        <div><div class="dpm" id="arch"></div><small>Archive</small></div>
+        <div><div class="dpm" id="live"></div><small>Live now</small></div>
+      </div>
+      <p class="what" id="what"></p>
+    </div>
+
+    <div>
+      <div class="score"><span id="big"></span><div class="t"><b id="sc"></b><span id="arc"></span></div></div>
+      <div id="rows"></div>
+      <div class="foot">
+        <span class="plate rivets">Restored in /dev/shm</span>
+        <span class="plate rivets">No writes to the flash stick</span>
+      </div>
+    </div>
+  </div>
+  <p class="source">real output of <b>_host/backup-restore-test.sh</b> on synthetic data &middot; the synchroscope is drawn: the drill compares each restored copy with the live data before it counts</p>
 </div>
 <script src="common.js"></script>
 <script>
+  // ---- the synchroscope: an ivory dial, the needle straight up means in sync ----
+  {
+    const c = 140, R = 112;
+    const pt = (a, r) => [c + r * Math.sin(a * Math.PI / 180), c - r * Math.cos(a * Math.PI / 180)];
+    let ticks = "";
+    for (let a = -170; a <= 180; a += 10) {
+      const major = a % 30 === 0, [x1, y1] = pt(a, R - 6), [x2, y2] = pt(a, R - (major ? 22 : 14));
+      ticks += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#1a2633" stroke-width="${major ? 2.4 : 1.2}"/>`;
+    }
+    const arc = (a1, a2, r) => { const [x1, y1] = pt(a1, r), [x2, y2] = pt(a2, r); return `M${x1.toFixed(1)} ${y1.toFixed(1)} A${r} ${r} 0 0 1 ${x2.toFixed(1)} ${y2.toFixed(1)}`; };
+    const [tx, ty] = pt(0, 70);
+    document.getElementById("dial").innerHTML = `
+      <defs>
+        <radialGradient id="face" cx=".45" cy=".35" r=".75"><stop offset="0" stop-color="#f6f1e4"/><stop offset=".8" stop-color="#e4dcc8"/><stop offset="1" stop-color="#cfc6b0"/></radialGradient>
+        <linearGradient id="bez" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3c536a"/><stop offset=".5" stop-color="#1b2c3d"/><stop offset="1" stop-color="#0a1520"/></linearGradient>
+        <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".35"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/></linearGradient>
+        <path id="ta" d="${arc(-128, -52, 78)}"/><path id="tb" d="${arc(52, 128, 78)}"/>
+        <marker id="ah" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#1a2633"/></marker>
+      </defs>
+      <circle cx="${c}" cy="${c}" r="136" fill="url(#bez)" stroke="#050c13" stroke-width="2"/>
+      <circle cx="${c}" cy="${c}" r="124" fill="#08131d"/>
+      <circle cx="${c}" cy="${c}" r="${R + 6}" fill="url(#face)"/>
+      <path d="${arc(-12, 12, R - 14)}" stroke="#2fa866" stroke-width="16" fill="none"/>
+      ${ticks}
+      <path d="${arc(-100, -60, 92)}" stroke="#1a2633" stroke-width="1.6" fill="none" marker-start="url(#ah)"/>
+      <path d="${arc(60, 100, 92)}" stroke="#1a2633" stroke-width="1.6" fill="none" marker-end="url(#ah)"/>
+      <text font-family="Saira" font-stretch="125%" font-weight="700" font-size="10" letter-spacing="2.2" style="fill:#1a2633"><textPath href="#ta" startOffset="50%" text-anchor="middle">SLOW</textPath></text>
+      <text font-family="Saira" font-stretch="125%" font-weight="700" font-size="10" letter-spacing="2.2" style="fill:#1a2633"><textPath href="#tb" startOffset="50%" text-anchor="middle">FAST</textPath></text>
+      <text x="${c}" y="${c + 44}" text-anchor="middle" font-family="Saira" font-stretch="125%" font-weight="700" font-size="9.5" letter-spacing="2.6" style="fill:#1a2633">SYNCHROSCOPE</text>
+      <text x="${c}" y="${c + 58}" text-anchor="middle" font-family="Martian Mono" font-stretch="87.5%" font-size="8.5" style="fill:#5d6b78">archive : live</text>
+      <path d="M${c - 4} ${c + 30} L${c - 2.2} ${c - 100} L${c} ${c - 104} L${c + 2.2} ${c - 100} L${c + 4} ${c + 30} Z" fill="#14202c"/>
+      <circle cx="${c}" cy="${c}" r="11" fill="#14202c"/><circle cx="${c}" cy="${c}" r="4" fill="#3c536a"/>
+      <circle cx="${c}" cy="${c}" r="${R + 6}" fill="url(#glass)"/>
+      <circle cx="${c}" cy="${c}" r="124" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="1"/>
+      ${[45, 135, 225, 315].map((a) => { const [x, y] = pt(a, 130); return `<circle cx="${x}" cy="${y}" r="3.2" fill="#0a1520" stroke="#4d6378" stroke-width=".8"/>`; }).join("")}`;
+  }
+
+  // ---- the drill's own output ----
   const types = { adguard: "dir", couchdb: "dir", kuma: "sqlite", vaultwarden: "sqlite", dockge: "sqlite", syncthing: "dir", homeassistant: "ha-link", platform: "files", secrets: "files" };
-  const tick = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
-  // split "a, b (c, d), e" on commas that are not inside parentheses
   const split = (s) => { const out = []; let d = 0, cur = ""; for (const ch of s) { if (ch === "(") d++; if (ch === ")") d--; if (ch === "," && d === 0) { out.push(cur.trim()); cur = ""; } else cur += ch; } if (cur.trim()) out.push(cur.trim()); return out; };
-  const good = /\bok\b|identical|parseable|clones|present|opens|no \.bak|no index/;
+  const strong = /identical|live|clones|integrity_check ok|parseable/;
   (async () => {
     const all = (await demo("restore-drill.txt")).split("\n");
     const pass = all.filter((l) => /^PASS /.test(l)), fail = all.filter((l) => /^FAIL /.test(l));
     document.getElementById("rows").innerHTML = pass.map((l) => {
       const m = l.match(/^PASS ([a-z]+): (\S+): (.*)$/);
-      const chips = split(m[3]).map((c) => `<span class="${good.test(c) ? "g" : ""}">${esc(c)}</span>`).join("");
-      return `<div class="r"><div class="ck">${tick}</div><div class="set">${m[1]}</div><div class="ty">${types[m[1]] || ""}</div><div class="det"><div class="arc">${esc(m[2])}</div><div class="chips">${chips}</div></div></div>`;
+      const checks = split(m[3]).map((c) => strong.test(c) ? `<em>${esc(c)}</em>` : esc(c)).join("<i>&middot;</i>");
+      return `<div class="row"><i class="lamp"></i><b>${m[1]}<small>${types[m[1]] || ""}</small></b><p>${checks}</p></div>`;
     }).join("");
+    document.getElementById("big").innerHTML = seg(`${pass.length}`, { h: mobile() ? 50 : 58, color: "#52d68a" });
+    document.getElementById("sc").textContent = `of ${pass.length + fail.length} sets passed`;
     const stamp = (pass[0].match(/_(\d{8}_\d{6})\.tar\.gz/) || [])[1];
-    document.getElementById("arc").textContent = stamp ? `archives ${stamp}` : "";
-    document.getElementById("score").innerHTML = `${pass.length}<span>/${pass.length + fail.length}</span>`;
-    document.getElementById("sub").textContent = `passed · ${fail.length} failed`;
-    document.getElementById("foot").innerHTML = esc(all[all.length - 1]).replace(/(\d+ passed)/, "<b>$1</b>");
+    document.getElementById("arc").innerHTML = `<em>${fail.length} failed</em> &middot; archives ${stamp} &middot; copies deleted after`;
+    // the needle's evidence: vaultwarden's cipher count, archive against live
+    const v = pass.find((l) => /^PASS vaultwarden/.test(l)).match(/ciphers=(\d+) \(live now (\d+)\)/);
+    const h = mobile() ? 26 : 28;
+    document.getElementById("arch").innerHTML = seg(v[1], { h });
+    document.getElementById("live").innerHTML = seg(v[2], { h });
+    document.getElementById("what").textContent = "vaultwarden: ciphers in the restored copy and in the live database";
   })();
 </script>
 </body>

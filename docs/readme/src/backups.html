@@ -2,44 +2,98 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>homelab-backup</title>
-<link rel="stylesheet" href="base.css">
+<title>homelab: backup hall</title>
+<link rel="stylesheet" href="board.css">
 <style>
-  .card { padding: 44px 44px 30px; }
-  .term pre { min-height: 200px; }
-  @media (max-width: 700px) { .card { padding: 20px 12px 18px; } }
+  .body { display: grid; grid-template-columns: 226px 1fr; gap: 32px; align-items: start; }
+
+  /* the set lamps */
+  .sets h4 { font: 600 10px/1 var(--disp); font-stretch: 125%; letter-spacing: .2em; text-transform: uppercase; color: var(--engrave-3); margin: 8px 0 16px; }
+  .set { display: grid; grid-template-columns: 18px 1fr auto; align-items: center; gap: 12px; padding: 9px 0; border-top: 1px solid rgba(255,255,255,.05); }
+  .set:last-of-type { border-bottom: 1px solid rgba(255,255,255,.05); }
+  .set b { font: 650 11.5px/1 var(--disp); font-stretch: 118%; letter-spacing: .07em; text-transform: uppercase; color: var(--engrave); }
+  .set small { font: 400 9.5px/1 var(--mono); font-stretch: 87.5%; color: var(--engrave-3); }
+  .set.bad b { color: #ffb3a8; }
+  .after { margin-top: 14px; font: 400 10px/1.5 var(--mono); font-stretch: 87.5%; color: var(--engrave-3); }
+  .after em { font-style: normal; color: #ffb3a8; }
+
+  /* the event printer */
+  .printer { position: relative; padding-top: 18px; }
+  .slot {
+    position: absolute; top: 0; left: -14px; right: -14px; height: 30px; z-index: 2; border-radius: 3px;
+    background: linear-gradient(180deg, #2a3e52 0%, #1a2b3c 45%, #0b1622 100%);
+    box-shadow: 0 6px 12px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.12), 0 0 0 1px #050c13;
+    display: flex; align-items: center; justify-content: space-between; padding: 0 16px;
+  }
+  .slot::after { content: ""; position: absolute; left: 12px; right: 12px; bottom: 5px; height: 4px; border-radius: 2px; background: #02060a; box-shadow: inset 0 1px 2px #000; }
+  .slot span { margin-top: -6px; font: 600 9px/1 var(--disp); font-stretch: 125%; letter-spacing: .22em; color: var(--engrave-3); text-transform: uppercase; }
+  .slot span i { display: inline-block; width: 6px; height: 6px; margin-right: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); vertical-align: 0; }
+  .paper { margin: 0 6px; padding: 30px 46px 34px; transform: rotate(-0.25deg); transform-origin: top center;
+           -webkit-mask: linear-gradient(#000, #000) top / 100% calc(100% - 9px) no-repeat,
+                         conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 14px 9px repeat-x; }
+  .paper pre { font-size: 11.8px; }
+  .paper .ln { padding-left: 5ch; text-indent: -5ch; }
+  .paper .pr { color: #5d6b78; }
+
+  .rules { margin-top: 26px; display: flex; gap: 12px; flex-wrap: wrap; }
+
+  @media (max-width: 700px) {
+    .body { grid-template-columns: 1fr; gap: 26px; }
+    .sets .list { display: grid; grid-template-columns: 1fr 1fr; column-gap: 18px; }
+    .set { grid-template-columns: 16px 1fr auto; gap: 9px; padding: 8px 0; }
+    .set:nth-last-of-type(2) { border-bottom: 1px solid rgba(255,255,255,.05); }
+    .set b { font-size: 10.5px; }
+    .set small { font-size: 10px; }
+    .after { font-size: 10.5px; }
+    .paper { padding: 24px 36px 30px; }
+    .paper pre { font-size: 10.5px; }
+    .paper::before, .paper::after { width: 20px; background-size: 20px 22px; background-image: radial-gradient(circle at 10px 11px, #0c1926 0 3.4px, rgba(0,0,0,.12) 3.8px, transparent 4.6px); }
+    .rules { gap: 8px; margin-top: 20px; }
+    .rules .plate { font-size: 10px; padding: 6px 20px 5px; }
+  }
 </style>
 </head>
 <body>
-<div class="card">
-  <div class="term">
-    <div class="term-bar"><i></i><i></i><i></i><span>pi@raspberrypi: ~</span></div>
-    <pre id="out"></pre>
+<div class="panel">
+  <div class="rail">
+    <span class="bno">B2</span>
+    <span class="rtitle">Backup hall</span>
+    <span class="rnote">daily 05:00 &middot; one engine, one list</span>
   </div>
-  <p class="source">real output of <b>homelab-backup</b> on synthetic data (scripts/readme-demo.sh)</p>
+
+  <div class="body">
+    <div class="sets">
+      <h4>After the second run</h4>
+      <div class="list" id="sets"></div>
+      <p class="after">One set failed and <em>kept every older archive.</em> The other eight were never touched.</p>
+    </div>
+    <div class="printer">
+      <div class="slot"><span>Event printer</span><span><i></i>on line</span></div>
+      <div class="paper"><pre id="out"></pre></div>
+    </div>
+  </div>
+
+  <div class="rules">
+    <span class="plate rivets">Verify, then prune</span>
+    <span class="plate rivets">Newest 3 never pruned</span>
+    <span class="plate rivets">A failed set keeps everything</span>
+  </div>
+  <p class="source">real output of <b>homelab-backup</b> on synthetic data, captured by <b>scripts/readme-demo.sh</b> &middot; failures print in red, as on a two-colour ribbon</p>
 </div>
 <script src="common.js"></script>
 <script>
-  const P = '<span class="p">pi@raspberrypi:~$</span> ';
+  const P = '<span class="pr">pi@raspberrypi:~$</span> ';
   const line = (l) => {
-    let h = esc(l);
+    let h = esc(l).replace(/(pruned|quick_check|members,?|sets?) (\d+|ok)/g, '$1&nbsp;$2').replace(/(\d+) (members|sets|paths|new|open)/g, '$1&nbsp;$2');
     if (/^ok /.test(l)) {
-      h = h.replace(/^ok   ([a-z]+):/, '<span class="ok b">ok</span>   <span class="ink b">$1</span>:')
-           .replace(/(quick_check ok)/, '<span class="ok">$1</span>')
-           .replace(/(pruned [1-9]\d*)/, '<span class="am">$1</span>')
-           .replace(/( [0-9.]+[KMG],)/, '<span class="ink">$1</span>')
-           .replace(/((?:monitor|ciphers|user)=\d+)/, '<span class="ink">$1</span>');
-      h = h.replace(/([a-z]+_\d{8}_\d{6}\.tar\.gz|Automatic_backup_[^ ]+\.tar)/, '<span class="mut">$1</span>');
-    } else if (/^FAILED/.test(l)) {
-      h = h.replace(/^FAILED ([a-z]+):/, '<span class="bad">FAILED</span> <span class="ink b">$1</span>:')
-           .replace(/(nothing pruned)/, '<span class="am b">$1</span>');
+      h = h.replace(/^ok   ([a-z]+):/, '<span class="b">ok</span>   <span class="b">$1</span>:')
+           .replace(/([a-z]+_\d{8}_\d{6}\.tar\.gz|Automatic_backup_[^ ]+\.tar)/, '<span class="dim">$1</span>');
+    } else if (/^FAILED|^BACKUP RUN HAD FAILURES/.test(l)) {
+      h = `<span class="red">${h}</span>`;
     } else if (/^backup run OK/.test(l)) {
-      h = `<span class="ok b">${h}</span>`;
-    } else if (/^BACKUP RUN HAD FAILURES/.test(l)) {
-      h = h.replace(/^(BACKUP RUN HAD FAILURES)/, '<span class="bad">$1</span>')
-           .replace(/(Older archives of failed sets were kept\.)/, '<span class="am">$1</span>');
+      h = `<span class="b">${h}</span>`;
     } else if (/^homelab-backup /.test(l)) {
-      h = `<span class="mut">${h}</span>`;
+      h = `<span class="dim">${h}</span>`;
     }
     return h;
   };
@@ -47,9 +101,15 @@
     const ok = await demo("backup.txt"), bad = await demo("backup-fail.txt");
     const block = (t) => t.split("\n").map(line);
     document.getElementById("out").innerHTML = lines([
-      P + '<span class="c">sudo homelab-backup</span>', ...block(ok), "",
-      P + '<span class="c">sudo mv docker/vaultwarden/data/rsa_key.pem ~/rsa_key.pem.aside</span>',
-      P + '<span class="c">sudo homelab-backup --only vaultwarden</span>', ...block(bad)]);
+      P + '<span class="cmd">sudo homelab-backup</span>', ...block(ok), "",
+      P + '<span class="cmd">sudo mv docker/vaultwarden/data/rsa_key.pem ~/rsa_key.pem.aside</span>',
+      P + '<span class="cmd">sudo homelab-backup --only vaultwarden</span>', ...block(bad)]);
+    // the lamps: every set from the first run, the failed one from the second
+    const types = { adguard: "dir", couchdb: "dir", kuma: "sqlite", vaultwarden: "sqlite", dockge: "sqlite", syncthing: "dir", homeassistant: "ha-link", platform: "files", secrets: "files" };
+    const failed = new Set([...bad.matchAll(/^FAILED ([a-z]+):/gm)].map((m) => m[1]));
+    const sets = [...ok.matchAll(/^ok +([a-z]+):/gm)].map((m) => m[1]);
+    document.getElementById("sets").innerHTML = sets.map((s) =>
+      `<div class="set${failed.has(s) ? " bad" : ""}"><i class="lamp${failed.has(s) ? " r" : ""}"></i><b>${s}</b><small>${types[s]}</small></div>`).join("");
   })();
 </script>
 </body>

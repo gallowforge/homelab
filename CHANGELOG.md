@@ -1,5 +1,14 @@
 # Changelog
 
+## Visual identity
+
+- The README images were redrawn as panels of one control-room mimic board: navy enamel,
+  engraved ivory, signal lamps (Saira and Martian Mono). Each feature gets its own
+  instrument: panel meters, a locked-out breaker, an event printer, a synchroscope, an
+  annunciator, discrepancy switches and standing orders. The content is unchanged: the
+  same captured demo output, ports and timers. See `docs/readme/IDENTITY.md`.
+- `scripts/readme-visuals.sh` now also renders the social preview, `docs/readme/social.png`.
+
 ## README and visuals
 
 - The README was rebuilt around designed images in `docs/readme/`: a hero diagram, the

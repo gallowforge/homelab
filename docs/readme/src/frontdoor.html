@@ -2,83 +2,153 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>homelab status</title>
-<link rel="stylesheet" href="base.css">
+<title>homelab: front door</title>
+<link rel="stylesheet" href="board.css">
 <style>
-  .card { padding: 44px; }
-  .board { border-radius: 20px; border: 1px solid var(--line2); background: linear-gradient(180deg, #171410, #110f0d); box-shadow: 0 30px 80px rgba(0,0,0,.5); overflow: hidden; }
-  .top { display: flex; align-items: center; justify-content: space-between; padding: 22px 26px; border-bottom: 1px solid var(--line); }
-  .host { display: flex; align-items: center; gap: 12px; }
-  .host .lock { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--amber-dim); border: 1px solid rgba(226,145,90,.35); }
-  .host .lock svg { width: 17px; height: 17px; color: var(--amber); }
-  .host b { display: block; font: 600 16px/1.2 var(--sans); }
-  .host small { display: block; margin-top: 3px; font: 500 12.5px/1.2 var(--mono); color: var(--muted); }
-  .all { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-radius: 999px; background: var(--green-dim); border: 1px solid rgba(127,212,143,.35); font: 600 14px/1 var(--sans); color: var(--green); }
-  .meta { display: flex; gap: 26px; padding: 14px 26px; border-bottom: 1px solid var(--line); font: 500 12.5px/1 var(--mono); color: var(--muted); background: rgba(255,255,255,.015); }
-  .meta b { color: var(--ink); font-weight: 600; }
-  .rows { padding: 6px 0; }
-  .r { display: grid; grid-template-columns: 220px 210px 1fr 70px; align-items: center; gap: 22px; padding: 13px 26px; }
-  .r + .r { border-top: 1px solid #ffffff0b; }
-  .r .name { display: flex; align-items: center; gap: 10px; font: 600 14.5px/1.2 var(--sans); }
-  .r .name small { display: block; font: 400 12px/1.2 var(--sans); color: var(--muted); margin-top: 3px; }
-  .r .ep { font: 500 12.5px/1.3 var(--mono); color: var(--body); }
-  .r .ep span { color: var(--amber2); }
-  .bars { display: flex; gap: 2px; height: 24px; align-items: stretch; }
-  .bars i { flex: 1; border-radius: 2px; background: linear-gradient(180deg, #86d996, #5fb872); opacity: .9; }
-  .st { text-align: right; font: 600 13px/1 var(--sans); color: var(--green); }
-  .foot { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); }
-  .foot div { padding: 16px 26px; font: 400 13px/1.4 var(--sans); color: var(--muted); }
-  .foot div + div { border-left: 1px solid var(--line); }
-  .foot b { display: block; font: 600 13.5px/1.3 var(--sans); color: var(--ink); margin-bottom: 2px; }
+  .probe { display: flex; align-items: center; gap: 10px; }
+  .body { display: grid; grid-template-columns: 330px 1fr; gap: 40px; align-items: start; }
+  .body svg { display: block; overflow: visible; }
+  .body .m-mob { display: none; }
+  .facts { margin-top: 30px; display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid rgba(255,255,255,.08); }
+  .facts div { padding: 16px 20px 0 0; }
+  .facts div + div { padding-left: 20px; border-left: 1px solid rgba(255,255,255,.08); }
+  .facts b { display: block; font: 650 11px/1.2 var(--disp); font-stretch: 125%; letter-spacing: .14em; text-transform: uppercase; color: var(--engrave); }
+  .facts p { margin-top: 7px; font: 400 13px/1.45 var(--disp); color: var(--engrave-2); }
+  .facts code { font: 500 11.5px var(--mono); font-stretch: 87.5%; color: var(--engrave); }
+  .tag text { fill: var(--ink) !important; }
   @media (max-width: 700px) {
-    .card { padding: 20px 14px; }
-    .top { padding: 18px 16px; flex-direction: column; align-items: flex-start; gap: 14px; }
-    .host b { font-size: 14px; }
-    .host small { font-size: 11px; }
-    .meta { padding: 12px 16px; gap: 14px; font-size: 11px; flex-wrap: wrap; }
-    .r { grid-template-columns: 1fr auto; gap: 6px 12px; padding: 12px 16px; }
-    .r .name small { display: none; }
-    .r .ep { grid-column: 1 / -1; grid-row: 2; font-size: 11.5px; padding-left: 18px; }
-    .bars { display: none; }
-    .foot { grid-template-columns: 1fr; }
-    .foot div { padding: 13px 16px; }
-    .foot div + div { border-left: 0; border-top: 1px solid var(--line); }
+    .rail .probe .rnote { display: none; }
+    .body { grid-template-columns: 1fr; gap: 20px; }
+    .body .m-desk { display: none; }
+    .body .m-mob { display: block; }
+    .lock { display: flex; justify-content: center; }
+    .facts { grid-template-columns: 1fr; margin-top: 22px; }
+    .facts div, .facts div + div { padding: 14px 0; border-left: 0; border-bottom: 1px solid rgba(255,255,255,.08); }
+    .facts p { font-size: 13px; }
   }
 </style>
 </head>
 <body>
-<div class="card">
-  <div class="board">
-    <div class="top">
-      <div class="host">
-        <div class="lock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg></div>
-        <div><b>raspberrypi.example-tailnet.ts.net</b><small>one TLS front door &middot; tailnet certificate</small></div>
-      </div>
-      <div class="all"><i class="dot"></i>All systems operational</div>
-    </div>
-    <div class="meta"><span><b>13</b> monitors</span><span>every <b>60 s</b></span><span>alert after <b>3</b> failed checks</span><span><b>0</b> ports forwarded</span></div>
-    <div class="rows" id="rows"></div>
-    <div class="foot">
-      <div><b>Away from home</b>Tailscale (WireGuard). The ISP's CGNAT allows nothing inbound anyway.</div>
-      <div><b>At home</b>AdGuard answers the tailnet name with the LAN address: one set of links.</div>
-      <div><b>Docker cannot open a hole</b>DOCKER-USER rules close Docker's bypass of ufw.</div>
+<div class="panel">
+  <div class="rail">
+    <span class="bno">B1</span>
+    <span class="rtitle">Front door</span>
+    <span class="rnote">nothing open to the internet</span>
+    <div class="push probe"><span class="rnote">13 probes &middot; every 60 s &middot; alert after 3 misses</span><i class="lamp"></i></div>
+  </div>
+
+  <div class="body">
+    <div class="lock"><svg id="lock" width="330" height="430" viewBox="0 0 330 430"></svg></div>
+    <div>
+      <svg class="m-desk" id="door" width="646" height="430" viewBox="0 0 646 430"></svg>
+      <svg class="m-mob" id="doorM" width="500" height="530" viewBox="0 0 500 530"></svg>
     </div>
   </div>
-  <p class="source">illustration &middot; placeholder host &middot; ports from <b>caddy/Caddyfile</b></p>
+
+  <div class="facts">
+    <div><b>Away from home</b><p>Tailscale (WireGuard). The ISP's CGNAT lets nothing in anyway, and UPnP is off.</p></div>
+    <div><b>At home</b><p>AdGuard answers the tailnet name with the LAN address: the same HTTPS links on the sofa and abroad.</p></div>
+    <div><b>Docker cannot punch through</b><p><code>DOCKER-USER</code> drops new connections from outside the LAN, which Docker's DNAT would otherwise let past ufw.</p></div>
+  </div>
+  <p class="source">ports from <b>caddy/Caddyfile</b> &middot; firewall in <b>_host/etc/ufw/after.rules</b> &middot; placeholder names and addresses</p>
 </div>
+<script src="common.js"></script>
 <script>
-  const rows = [
-    ["AdGuard Home", "DNS for the house", "<span>:53</span> DNS query"],
-    ["Vaultwarden", "passwords", "<span>:8452</span> HTTPS via Caddy"],
-    ["Home Assistant", "smart home", "<span>:8443</span> HTTPS via Caddy"],
-    ["CouchDB", "notes sync", "<span>:8450</span> HTTPS via Caddy"],
-    ["Syncthing", "vault replication", "<span>:8453</span> HTTPS via Caddy"],
-    ["AdGuard admin", "filters, rewrites", "<span>:8445</span> HTTPS via Caddy"],
-    ["Dockge", "compose stacks", "<span>:8444</span> HTTPS via Caddy"],
+  // ---------------- the locked-out breaker ----------------
+  {
+    K = "L";
+    let g = defs(K) + `<defs>
+      <linearGradient id="steel" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c9d3dc"/><stop offset=".5" stop-color="#8396a8"/><stop offset="1" stop-color="#4b5d6f"/></linearGradient>
+      <linearGradient id="tagp" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4efe2"/><stop offset="1" stop-color="#e2dac6"/></linearGradient>
+      <filter id="tsh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="2" dy="8" stdDeviation="7" flood-color="#000" flood-opacity=".5"/></filter>
+    </defs>`;
+    g += T("t2", 0, 12, "Internet inbound") + T("t3", 0, 27, "WAN side, ISP behind CGNAT");
+    // the supply and the open blade
+    g += `<path class="ln-idle" d="M70 44 V150" style="stroke-width:5"/>`;
+    g += `<circle cx="70" cy="150" r="6" fill="var(--engrave)"/><path d="M70 150 L124 96" stroke="var(--engrave)" stroke-width="5" stroke-linecap="round"/>`;
+    g += `<circle cx="70" cy="214" r="7" fill="var(--enamel)" stroke="var(--engrave)" stroke-width="2.4"/><path class="ln-idle" d="M70 221 V300" style="stroke-width:5"/>`;
+    g += `<path d="M58 300 H82 M62 307 H78 M66 314 H74" stroke="var(--idle)" stroke-width="2.4"/>`;
+    g += T("t3", 0, 340, "open: no port is") + T("t3", 0, 353, "forwarded to the house");
+    // hasp and padlock on the blade
+    g += `<circle cx="104" cy="116" r="9" fill="none" stroke="url(#steel)" stroke-width="3.2"/>`;
+    g += `<g transform="translate(104 125)">
+        <path d="M-9 0 V-7 a9 9 0 0 1 18 0 V0" fill="none" stroke="url(#steel)" stroke-width="4"/>
+        <rect x="-14" y="0" width="28" height="24" rx="3" fill="url(#steel)" stroke="#2a3a4a" stroke-width="1"/>
+        <rect x="-14" y="0" width="28" height="4" rx="2" fill="#fff" opacity=".35"/>
+        <circle cx="0" cy="11" r="3" fill="#1f2c39"/><rect x="-1.2" y="12" width="2.4" height="6" fill="#1f2c39"/>
+      </g>`;
+    // the cord and the tag
+    g += `<path d="M110 148 C 130 175, 150 178, 170 188" fill="none" stroke="var(--engrave-2)" stroke-width="1.4"/>`;
+    g += `<g class="tag" transform="translate(150 182) rotate(-5)" filter="url(#tsh)">
+        <path d="M14 0 H146 L160 14 V236 H0 V14 Z" fill="url(#tagp)"/>
+        <rect x="0" y="22" width="160" height="34" fill="#10202f"/>
+        <text x="80" y="45" text-anchor="middle" style="fill:#ebe5d5 !important;font:800 14px Saira;font-stretch:125%;letter-spacing:.16em">LOCKED OUT</text>
+        <circle cx="26" cy="11" r="6.5" fill="#10202f"/><circle cx="26" cy="11" r="3.4" fill="#0b1825"/>
+        <circle cx="26" cy="11" r="6.5" fill="none" stroke="#b9ae95" stroke-width="1.5"/>
+        <text x="14" y="82" style="font:700 11px Saira;font-stretch:125%;letter-spacing:.12em">INTERNET INBOUND</text>
+        <text x="14" y="106" style="font:500 10.5px 'Martian Mono';font-stretch:87.5%">0 port forwards</text>
+        <text x="14" y="122" style="font:500 10.5px 'Martian Mono';font-stretch:87.5%">UPnP off</text>
+        <text x="14" y="138" style="font:500 10.5px 'Martian Mono';font-stretch:87.5%">no new public names</text>
+        <path d="M14 154 H146" stroke="#10202f" stroke-width="1" stroke-dasharray="2 3"/>
+        <text x="14" y="174" style="font:600 11px Saira">Locked by the ISP.</text>
+        <text x="14" y="190" style="font:600 11px Saira">Kept locked on purpose.</text>
+        <text x="14" y="216" style="font:400 9px 'Martian Mono';font-stretch:87.5%;fill:#5d6b78 !important">docs/design-decisions.md</text>
+      </g>`;
+    document.getElementById("lock").innerHTML = g;
+  }
+
+  // ---------------- the one door ----------------
+  const sites = [ // caddy/Caddyfile, in port order
+    ["Home", "Assistant", ":8443"], ["Dockge", "", ":8444"], ["AdGuard", "admin", ":8445"], ["Uptime", "Kuma", ":8446"],
+    ["CouchDB", "", ":8450"], ["Vault-", "warden", ":8452"], ["Syncthing", "", ":8453"],
   ];
-  const bars = '<i></i>'.repeat(90);
-  document.getElementById("rows").innerHTML = rows.map(([n, s, e]) =>
-    `<div class="r"><div class="name"><i class="dot"></i><div>${n}<small>${s}</small></div></div><div class="ep">${e}</div><div class="bars">${bars}</div><div class="st">Up</div></div>`).join("");
+  {
+    K = "D"; let g = defs(K);
+    // two supplies: the house LAN and the tailnet
+    g += T("t2", 0, 12, "Home LAN") + T("t3", 0, 27, "192.168.1.0/24");
+    g += `<path class="ln-live" d="M0 44 H190 V120 H214"/>`;
+    g += T("t2", 0, 182, "Away") + T("t3", 0, 197, "Tailscale, 100.64.0.x");
+    g += `<path class="ln-dash" d="M0 214 H190 V140 H214" style="stroke:var(--amber)"/>`;
+    // DNS taps the LAN supply directly
+    g += `<path class="ln-eng" d="M70 44 V78"/>` + lamp(70, 90, "g") + T("t3", 86, 88, "DNS :53") + T("t3", 86, 100, "AdGuard, direct");
+    // one name for both
+    g += `<rect x="214" y="110" width="226" height="40" rx="2" fill="url(#ivory${K})"/>`;
+    g += `<text class="port" x="327" y="127" text-anchor="middle" style="font-size:10px">raspberrypi.</text><text class="port" x="327" y="141" text-anchor="middle" style="font-size:10px">example-tailnet.ts.net</text>`;
+    g += T("t4", 214, 170, "One name, one certificate");
+    // the door
+    g += `<path class="ln-live" d="M440 130 H500"/><rect class="brk" x="500" y="114" width="40" height="32" rx="1"/><path class="ln-live" d="M520 146 V240"/>`;
+    g += T("t1", 500, 98, "Caddy") + T("t3", 556, 127, "the only TLS door") + T("t3", 556, 140, ":8443 to :8453");
+    // the bus and its sites
+    g += `<path d="M20 240 H630" stroke="var(--amber)" stroke-width="8"/>`;
+    sites.forEach(([a, b, p], i) => {
+      const x = 40 + i * 92;
+      g += `<path class="ln-eng" d="M${x} 240 V262"/><rect class="brk-c" x="${x - 6}" y="262" width="12" height="12"/><path class="ln-eng" d="M${x} 274 V290"/>` + lamp(x, 302) +
+           `<rect x="${x - 27}" y="320" width="54" height="18" rx="1.5" fill="url(#ivory${K})"/>` + T("port", x, 333, p, "middle") +
+           T("t2 tf", x, 360, a, "middle") + (b ? T("t2 tf", x, 375, b, "middle") : "");
+    });
+    g += T("t4", 20, 418, "Every site through the same door, probed like a client");
+    document.getElementById("door").innerHTML = g;
+  }
+  {
+    K = "M"; let g = defs(K);
+    g += T("t2", 0, 12, "Home LAN") + T("t3", 0, 27, "192.168.1.0/24");
+    g += `<path class="ln-live" d="M0 44 H166 V96 H182"/>`;
+    g += `<path class="ln-eng" d="M36 44 V64"/>` + lamp(36, 76) + T("t3", 52, 74, "DNS :53") + T("t3", 52, 86, "AdGuard, direct");
+    g += T("t2", 0, 150, "Away") + T("t3", 0, 165, "Tailscale, 100.64.0.x");
+    g += `<path class="ln-dash" d="M0 128 H166 V112 H182" style="stroke:var(--amber)"/>`;
+    g += `<rect x="182" y="84" width="196" height="40" rx="2" fill="url(#ivory${K})"/>`;
+    g += `<text class="port" x="280" y="101" text-anchor="middle" style="font-size:10px">raspberrypi.</text><text class="port" x="280" y="115" text-anchor="middle" style="font-size:10px">example-tailnet.ts.net</text>`;
+    g += `<path class="ln-live" d="M378 104 H420 V128"/><rect class="brk" x="404" y="128" width="32" height="40" rx="1"/><path class="ln-live" d="M420 168 V200"/>`;
+    g += T("t1", 392, 148, "Caddy", "end") + T("t3", 392, 164, "the only TLS door", "end") + T("t3", 392, 177, ":8443 to :8453", "end");
+    g += `<path d="M40 200 H420 M40 200 V520" stroke="var(--amber)" stroke-width="8"/>`;
+    sites.forEach(([a, b, p], i) => {
+      const y = 232 + i * 44;
+      g += `<path class="ln-eng" d="M40 ${y} H62"/><rect class="brk-c" x="62" y="${y - 6}" width="12" height="12"/><path class="ln-eng" d="M74 ${y} H90"/>` + lamp(102, y) +
+           T("t2 tf", 120, y + 4, (a + (b ? (a.endsWith("-") ? "" : " ") + b : "")).replace("-", "")) +
+           `<rect x="420" y="${y - 9}" width="54" height="18" rx="1.5" fill="url(#ivory${K})"/>` + T("port", 447, y + 4, p, "middle");
+    });
+    document.getElementById("doorM").innerHTML = g;
+  }
 </script>
 </body>
 </html>

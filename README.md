@@ -1,6 +1,6 @@
 <picture>
   <source media="(max-width: 700px)" srcset="docs/readme/hero-mobile.webp" />
-  <img src="docs/readme/hero.webp" width="100%" alt="homelab: a household platform, run like production. A diagram of one Raspberry Pi 5: phones, laptops and the TV reach Caddy and AdGuard at home, devices away come in over Tailscale, and inside the Pi run Vaultwarden, CouchDB, Syncthing, Home Assistant, Uptime Kuma and Watchtower, with nightly timers and an AI operator. Backups leave for a desktop PC and a MacBook; alerts reach a phone and a dead-man switch." />
+  <img src="docs/readme/hero.webp" width="100%" alt="homelab: the house sleeps, the station never does. A control-room mimic panel of one Raspberry Pi 5: a house with one lit window feeds DNS (AdGuard Home), then the Caddy TLS edge, then a bus of seven services with green lamps and their ports. Devices away come in over Tailscale, and inbound internet is locked out. Archives leave for a desktop PC and a MacBook, pushes reach a phone, and a dead-man switch is pinged every 5 minutes. Duty-roster plates: 05:00 backup, 05:30 updates, Sunday 05:45 restore drill, 07:30 health check, 08:10 operator round, 5-minute heartbeat." />
 </picture>
 
 <p align="center">
@@ -19,17 +19,17 @@
 
 <p align="center">
   <a href="https://github.com/gallowforge/homelab/actions/workflows/validate.yml"><img alt="validate" src="https://github.com/gallowforge/homelab/actions/workflows/validate.yml/badge.svg" /></a>
-  <img alt="43 stubbed tests passing" src="https://img.shields.io/badge/tests-43_passing-e2915a?labelColor=0f1217" />
-  <img alt="0 port forwards" src="https://img.shields.io/badge/port_forwards-0-e2915a?labelColor=0f1217" />
-  <img alt="Runs on a Raspberry Pi 5" src="https://img.shields.io/badge/runs_on-Raspberry_Pi_5-e2915a?labelColor=0f1217" />
-  <a href="LICENSE"><img alt="MIT licence" src="https://img.shields.io/badge/licence-MIT-9aa1ad?labelColor=0f1217" /></a>
+  <img alt="43 stubbed tests passing" src="https://img.shields.io/badge/tests-43_passing-52d68a?labelColor=10202f" />
+  <img alt="0 port forwards" src="https://img.shields.io/badge/port_forwards-0-52d68a?labelColor=10202f" />
+  <img alt="Runs on a Raspberry Pi 5" src="https://img.shields.io/badge/runs_on-Raspberry_Pi_5-f5a63c?labelColor=10202f" />
+  <a href="LICENSE"><img alt="MIT licence" src="https://img.shields.io/badge/licence-MIT-7d90a2?labelColor=10202f" /></a>
 </p>
 
 <br />
 
 A house quietly depends on a handful of services: DNS, the password vault, notes, the smart home. Most homelabs keep them alive by memory and luck. A config gets edited on the live machine, a backup is copied but never restored, and an alert either fires forty times or not at all.
 
-**This repo runs one Raspberry Pi 5 like a small production platform.** Every hand-written file, host configuration included, lives in git at its live path, and a tool proves the machine still matches. Every night a backup engine writes, verifies and only then prunes, and every week a drill restores the result. Failures reach one phone as one push, and an always-on Claude Code session investigates them under a written charter.
+**This repo runs one Raspberry Pi 5 like a power station that never sleeps.** Every hand-written file, host configuration included, lives in git at its live path, and a tool proves the machine still matches. Every night a backup engine writes, verifies and only then prunes, and every week a drill restores the result. Failures reach one phone as one push, and an always-on Claude Code session investigates them under a written charter.
 
 <picture>
   <source media="(max-width: 700px)" srcset="docs/readme/numbers-mobile.webp" />
@@ -53,7 +53,7 @@ AdGuard answers DNS for every device in the house. Caddy is the only TLS front d
 
 <picture>
   <source media="(max-width: 700px)" srcset="docs/readme/frontdoor-mobile.webp" />
-  <img src="docs/readme/frontdoor.webp" width="100%" alt="A status board for raspberrypi.example-tailnet.ts.net: AdGuard DNS on port 53 and Vaultwarden, Home Assistant, CouchDB, Syncthing, the AdGuard admin and Dockge on HTTPS ports 8443 to 8453 through Caddy, all up. 13 monitors, every 60 seconds, 0 ports forwarded." />
+  <img src="docs/readme/frontdoor.webp" width="100%" alt="Front door panel: the internet breaker is open and locked out, its tag reading 0 port forwards, UPnP off, no new public names. The home LAN and Tailscale reach one name, raspberrypi.example-tailnet.ts.net, and one breaker, Caddy, which feeds Home Assistant, Dockge, the AdGuard admin, Uptime Kuma, CouchDB, Vaultwarden and Syncthing on ports 8443 to 8453, every lamp green. DNS on port 53 goes straight to AdGuard. 13 probes every 60 seconds." />
 </picture>
 
 ## Every backup is proven before an old one is deleted
@@ -65,7 +65,7 @@ AdGuard answers DNS for every device in the house. Caddy is the only TLS front d
 
 <picture>
   <source media="(max-width: 700px)" srcset="docs/readme/backups-mobile.webp" />
-  <img src="docs/readme/backups.webp" width="100%" alt="Terminal: sudo homelab-backup writes nine sets, each verified (quick_check ok, row counts, members) and pruned. Then Vaultwarden's rsa_key.pem is moved away, and the next run fails that set with 'required file is missing - nothing pruned' and keeps the older archives." />
+  <img src="docs/readme/backups.webp" width="100%" alt="Backup hall panel: the real output of sudo homelab-backup on event-printer paper. Nine sets are written, verified (quick_check ok, row counts, members) and pruned. Then Vaultwarden's rsa_key.pem is moved away, and the next run prints in red that the required file is missing, nothing pruned, older archives kept. Beside it, nine set lamps, all green except Vaultwarden." />
 </picture>
 
 ## A backup only counts once it has been restored
@@ -76,7 +76,7 @@ AdGuard answers DNS for every device in the house. Caddy is the only TLS front d
 
 <picture>
   <source media="(max-width: 700px)" srcset="docs/readme/drill-mobile.webp" />
-  <img src="docs/readme/drill.webp" width="100%" alt="Restore drill report: 9 of 9 sets passed, 0 failed. Each row shows the set, its type and its checks, such as integrity_check ok, ciphers=412 (live now 412), rsa_key.pem present and identical to live, bundle clones, and all files identical to live." />
+  <img src="docs/readme/drill.webp" width="100%" alt="Restore drill panel: 9 of 9 sets passed, 0 failed. A synchroscope needle stands at in sync, above Vaultwarden's cipher count: 412 in the restored copy, 412 live. Each set's checks follow, such as integrity_check ok, rsa_key.pem present and identical to live, bundle clones, and all files identical to live." />
 </picture>
 
 ## One incident, one push
@@ -88,7 +88,7 @@ AdGuard answers DNS for every device in the house. Caddy is the only TLS front d
 
 <picture>
   <source media="(max-width: 700px)" srcset="docs/readme/alerts-mobile.webp" />
-  <img src="docs/readme/alerts.webp" width="100%" alt="A phone lock screen with two ntfy notifications: 'homelab-backup.service failed on raspberrypi' quoting the FAILED line, and 41 minutes later 'homelab-backup.service OK again'. Beside it the notifier's log: sent, suppressed (already sent 14 min ago), resolved, and the wake-up line typed into the operator's session." />
+  <img src="docs/readme/alerts.webp" width="100%" alt="Annunciator panel: the alarm window for the failed homelab-backup unit is lit. The sequence below: 05:00 the backup fails and one push goes out, 05:14 it fails again and the push is suppressed, 05:41 it is fixed and one all-clear goes out. Then the notifier's log (sent, suppressed: already sent 14 min ago, resolved) and the wake-up line typed into the operator's session. Beside it, a phone lock screen with the two ntfy notifications, the first quoting the FAILED line." />
 </picture>
 
 ## The repo is the machine
@@ -100,7 +100,7 @@ AdGuard answers DNS for every device in the house. Caddy is the only TLS front d
 
 <picture>
   <source media="(max-width: 700px)" srcset="docs/readme/drift-mobile.webp" />
-  <img src="docs/readme/drift.webp" width="100%" alt="Terminal: sudo _host/install.sh finds a hand edit in /etc/fail2ban/jail.local (maxretry 3 instead of 5) and ends with RESULT: DRIFT. --apply installs the repo's version, saves the old file and prints the follow-up. The next run ends with RESULT: no drift." />
+  <img src="docs/readme/drift.webp" width="100%" alt="Configuration panel: a terminal screen with the real output of sudo _host/install.sh. It finds a hand edit in /etc/fail2ban/jail.local (maxretry 3 instead of 5) and ends with RESULT: DRIFT. --apply installs the repo's version, saves the old file and prints the follow-up. The next run ends with RESULT: no drift. Beside it, three discrepancy switches go from a flashing amber lamp to a steady green one." />
 </picture>
 
 ## An AI operator on call, bound by a charter
@@ -112,7 +112,7 @@ AdGuard answers DNS for every device in the house. Caddy is the only TLS front d
 
 <picture>
   <source media="(max-width: 700px)" srcset="docs/readme/operator-mobile.webp" />
-  <img src="docs/readme/operator.webp" width="100%" alt="The operator's charter as a document: five priorities in order (nothing precious is lost, nothing private is exposed, the owner is never locked out, the house keeps working, everything else) and the lines it does not cross. Beside it, what wakes the operator, its daily round, and the one command that stops it." />
+  <img src="docs/readme/operator.webp" width="100%" alt="Duty operator panel: the charter as framed standing orders, with five priorities in order (nothing precious is lost, nothing private is exposed, the owner is never locked out, the house keeps working, everything else) and the lines it does not cross. Beside it, what wakes the operator, its daily round, and an emergency stop button over the one command that stops it." />
 </picture>
 
 ## Why it is different
@@ -376,7 +376,7 @@ A unit can carry <code>OnFailure=homelab-failure@%n.service</code>, so a failed 
 
 Issues and pull requests are welcome, especially a safer default or a check that would have caught one of the [past failures](docs/past-failures.md) earlier. Run the [Quickstart](#quickstart) checks before opening one; CI runs the same steps plus gitleaks. Never commit real values: addresses, names and keys stay placeholders. A committed secret goes to the email in [SECURITY.md](SECURITY.md), not to a public issue.
 
-The images in this README come from `scripts/readme-demo.sh`, which captures the real output, and `scripts/readme-visuals.sh`, which renders the pages in `docs/readme/src/`.
+The images in this README come from `scripts/readme-demo.sh`, which captures the real output, and `scripts/readme-visuals.sh`, which renders the pages in `docs/readme/src/`. Their look, a control-room mimic panel, is described in [`docs/readme/IDENTITY.md`](docs/readme/IDENTITY.md).
 
 ## Licence
 
