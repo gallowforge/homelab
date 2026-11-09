@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+### README in the Glass look
+
+- The README images are now real output as frosted-glass windows floating in light, the
+  same family as the author's GitHub profile, in a dark and a light version that follow
+  GitHub's theme, each with a phone layout. The control-room board is retired.
+- Each image lifts out the one line that proves its point: the drill's result, Vaultwarden
+  restored and identical to live, the held-back push, the drifted line put back, the
+  command that stops the operator, the internet with no way in. The hero is an 8-second
+  loop in which only the light moves.
+- The README is shorter and leads with the evidence; the goals, the services and the
+  repository layout moved into collapsed sections.
+- `scripts/readme-visuals.sh` now typesets each window from `docs/readme/src/demo/*.txt`
+  (dates and archive names removed so the images do not age) and renders the scenes with
+  three.js in headless Chromium. See `docs/readme/IDENTITY.md`.
+
 ## 1.0.1
 
 ### Visual identity

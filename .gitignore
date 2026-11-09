@@ -30,3 +30,4 @@
 !/.github/workflows/
 /.github/workflows/*
 !/.github/workflows/*.yml
+/docs/readme/src/shots/

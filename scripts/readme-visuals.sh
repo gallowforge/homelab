@@ -1,60 +1,63 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # scripts/readme-visuals.sh - render the README images in docs/readme/.
 #
-# Each visual is an HTML page in docs/readme/src/, one panel of the same
-# control-room board (board.css, common.js; the identity is in
-# docs/readme/IDENTITY.md). Each page is captured twice with headless Chrome at
-# 2x: 1100 CSS px wide for desktops and 540 px for phones (the pages switch
-# layout at 700 px). The transparent margin is trimmed and the result saved as
-# WebP. The output pages read their text from docs/readme/src/demo/*.txt, which
-# scripts/readme-demo.sh captures by running the real scripts on synthetic data.
-# The social preview (social.html) is captured once at 1280x640, 1x, as PNG.
+# The images show real output as frosted-glass windows floating in light (the "Glass" look;
+# docs/readme/IDENTITY.md). Three steps, all from docs/readme/src/:
+#   1. textures.mjs typesets each window's content as a PNG in shots/, dark and light. The
+#      terminal windows are the real output in demo/*.txt, which scripts/readme-demo.sh
+#      captures by running the real scripts on synthetic data.
+#   2. glass/render.cjs renders each composition in layouts.js with three.js in headless
+#      Chromium: desktop 840 CSS px wide at 2x, phone 381 px at 1080/381, dark and light.
+#   3. The hero is an 8-second loop (animated WebP); every other image is a still WebP.
+#      social.png is the 1280x640 preview for Settings > Social preview.
 #
-#   scripts/readme-demo.sh        # optional: capture fresh terminal output
-#   scripts/readme-visuals.sh     # all visuals
-#   scripts/readme-visuals.sh hero numbers
-#   scripts/readme-visuals.sh social
+#   scripts/readme-demo.sh                 # optional: capture fresh terminal output
+#   scripts/readme-visuals.sh              # every image
+#   scripts/readme-visuals.sh drill alerts # only these (stills reuse existing textures)
 #
-# Needs google-chrome (or CHROME=/path/to/chromium) and ImageMagick 7 (magick).
+# Needs Node 22+, ImageMagick 7, ffmpeg with libwebp, and the `playwright` and `three`
+# packages on NODE_PATH with Playwright's Chromium, for example:
+#   npm i --prefix ~/.cache/glass playwright three && npx --prefix ~/.cache/glass playwright install chromium
+#   NODE_PATH=~/.cache/glass/node_modules scripts/readme-visuals.sh
 set -euo pipefail
-
 REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 SRC=$REPO/docs/readme/src
 OUT=$REPO/docs/readme
-CHROME=${CHROME:-$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)}
-[ -n "$CHROME" ] || { echo "no Chrome or Chromium found (set CHROME=...)" >&2; exit 2; }
-command -v magick >/dev/null || { echo "ImageMagick 7 (magick) is required" >&2; exit 2; }
+for t in node magick ffmpeg; do command -v "$t" >/dev/null || { echo "missing tool: $t" >&2; exit 2; }; done
+node -e "require('playwright'); require('three')" 2>/dev/null || { echo "set NODE_PATH to a node_modules with playwright and three (see the header)" >&2; exit 2; }
 
+STILLS=(numbers backups drill alerts drift operator topology)
 pages=("$@")
-[ ${#pages[@]} -gt 0 ] || pages=(hero numbers frontdoor backups drill alerts drift operator social)
+[ ${#pages[@]} -gt 0 ] || pages=(hero "${STILLS[@]}" social)
 
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/readme-visuals.XXXXXX")
 trap 'rm -rf "$TMP"' EXIT
 
-shoot() { # shoot <page> <css width> <suffix>
-  local png="$TMP/$1$3.png"
-  "$CHROME" --headless=new --hide-scrollbars --force-device-scale-factor=2 \
-    --default-background-color=00000000 --allow-file-access-from-files \
-    --virtual-time-budget=9000 --window-size="$2,3000" \
-    --user-data-dir="$TMP/profile" --no-first-run --disable-gpu \
-    --screenshot="$png" "file://$SRC/$1.html" >/dev/null 2>&1
-  magick "$png" -trim +repage -define webp:method=6 -quality 88 "$OUT/$1$3.webp"
-  printf '%-28s %s\n' "$1$3.webp" "$(magick identify -format '%wx%h' "$OUT/$1$3.webp")"
-}
+if [ $# -eq 0 ] || [ ! -f "$SRC/shots/boxes.js" ]; then node "$SRC/textures.mjs"; fi
 
-social() { # the repo's social preview: exactly 1280x640
-  "$CHROME" --headless=new --hide-scrollbars --force-device-scale-factor=1 \
-    --allow-file-access-from-files --virtual-time-budget=9000 --window-size=1280,640 \
-    --user-data-dir="$TMP/profile" --no-first-run --disable-gpu \
-    --screenshot="$TMP/social.png" "file://$SRC/social.html" >/dev/null 2>&1
-  magick "$TMP/social.png" -strip -define png:compression-level=9 "$OUT/social.png"
-  printf '%-28s %s\n' "social.png" "$(magick identify -format '%wx%h' "$OUT/social.png")"
+webp() { magick "$1" -strip -define webp:method=6 -quality "${3:-88}" "$2"; printf '%-28s %s\n' "${2##*/}" "$(du -h "$2" | cut -f1)"; }
+loop() { # loop <layout> <theme> <out.webp> <frames> <fps> <quality>
+  node "$SRC/glass/render.cjs" "$1,$2,anim,$4,$TMP/$1-$2" >/dev/null
+  ffmpeg -y -loglevel error -framerate "$5" -i "$TMP/$1-$2/f%04d.png" -c:v libwebp_anim -lossless 0 \
+    -quality "$6" -compression_level 6 -loop 0 "$OUT/$3"
+  printf '%-28s %s\n' "$3" "$(du -h "$OUT/$3" | cut -f1)"
 }
 
 for p in "${pages[@]}"; do
-  [ -f "$SRC/$p.html" ] || { echo "no page $SRC/$p.html" >&2; exit 2; }
-  if [ "$p" = social ]; then social; continue; fi
-  shoot "$p" 1100 ""
-  shoot "$p" 540 "-mobile"
+  case $p in
+    hero)
+      # 96 frames at 12 fps: one 8-second loop that closes on itself. The glass holds still
+      # while the light moves and the lifted result floats, so each frame stores little.
+      for t in dark light; do loop hero "$t" "hero-$t.webp" 96 12 72; loop hero-phone "$t" "hero-$t-phone.webp" 96 12 70; done ;;
+    social)
+      node "$SRC/glass/render.cjs" "social,dark,still,0,$TMP/social.png" >/dev/null
+      magick "$TMP/social.png" -strip -define png:compression-level=9 "$OUT/social.png"
+      echo "social.png                   $(magick identify -format '%wx%h' "$OUT/social.png")" ;;
+    *)
+      jobs=()
+      for t in dark light; do jobs+=("$p,$t,still,0,$TMP/$p-$t.png" "$p-phone,$t,still,0,$TMP/$p-$t-phone.png"); done
+      node "$SRC/glass/render.cjs" "${jobs[@]}" >/dev/null
+      for t in dark light; do webp "$TMP/$p-$t.png" "$OUT/$p-$t.webp"; webp "$TMP/$p-$t-phone.png" "$OUT/$p-$t-phone.webp" 86; done ;;
+  esac
 done
-du -ch "$OUT"/*.webp "$OUT"/*.png | tail -1
+du -ch "$OUT"/*.webp "$OUT"/social.png | tail -1
