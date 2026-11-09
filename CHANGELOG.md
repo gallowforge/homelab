@@ -1,6 +1,8 @@
 # Changelog
 
-## Visual identity
+## 1.0.1
+
+### Visual identity
 
 - The README images were redrawn as panels of one control-room mimic board: navy enamel,
   engraved ivory, signal lamps (Saira and Martian Mono). Each feature gets its own
@@ -9,7 +11,7 @@
   same captured demo output, ports and timers. See `docs/readme/IDENTITY.md`.
 - `scripts/readme-visuals.sh` now also renders the social preview, `docs/readme/social.png`.
 
-## README and visuals
+### README and visuals
 
 - The README was rebuilt around designed images in `docs/readme/`: a hero diagram, the
   numbers, a status board, the backup engine, the restore drill, the alert path, the drift
@@ -21,7 +23,7 @@
   `docs/past-failures.md`, unchanged in substance.
 - The account name in paths and units is now the placeholder `pi`.
 
-## Initial public release
+## 1.0.0: initial public release
 
 A sanitized copy of the private repo that runs the Pi.
 
