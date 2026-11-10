@@ -6,7 +6,7 @@ A household quietly depends on a few services: DNS, the password vault, notes, t
 
 <a href="docs/design-decisions.md#gh-dark-mode-only"><picture><source media="(max-width: 767px)" srcset="docs/readme/numbers-dark-phone.webp 2.835x"><source srcset="docs/readme/numbers-dark.webp 2x"><img src="docs/readme/numbers-dark.webp" width="840" alt="15 services on one Raspberry Pi 5. 12 backup sets verified every night. A 10-second weekly restore drill, in RAM. 0 port forwards, with UPnP off." loading="lazy"></picture></a><a href="docs/design-decisions.md#gh-light-mode-only"><picture><source media="(max-width: 767px)" srcset="docs/readme/numbers-light-phone.webp 2.835x"><source srcset="docs/readme/numbers-light.webp 2x"><img src="docs/readme/numbers-light.webp" width="840" alt="15 services on one Raspberry Pi 5. 12 backup sets verified every night. A 10-second weekly restore drill, in RAM. 0 port forwards, with UPnP off." loading="lazy"></picture></a>
 
-<sub>Figures from the live Pi. This public copy carries 9 of its 15 containers, 9 of its 12 backup sets and 12 of its 20 timers; see <a href="#what-this-copy-leaves-out">what it leaves out</a>. Every terminal in these images is real output of this repo's scripts, run by <a href="scripts/readme-demo.sh"><code>scripts/readme-demo.sh</code></a> on synthetic data.</sub>
+<sub>Figures from the live Pi. This public copy carries 9 of its 15 containers, 9 of its 12 backup sets and 12 of its 21 timers; see <a href="#what-this-copy-leaves-out">what it leaves out</a>. Every terminal in these images is real output of this repo's scripts, run by <a href="scripts/readme-demo.sh"><code>scripts/readme-demo.sh</code></a> on synthetic data.</sub>
 
 ## Backups are verified before anything is deleted
 
