@@ -70,11 +70,11 @@ automation alerts:
                if has_value(e) and states(e)|int(100) < 25 %}{{ state_attr(e, 'friendly_name') or e }} {{ states(e) }}%{{ ', ' if not loop.last }}{% endfor %}
             - replace the batteries.
   # A SwitchBot hub can drop off the SwitchBot cloud while its sensors still report; every
-  # infrared command through it (AC, ceiling LEDs, speakers) then fails with "device is
-  # offline". One hub did, unnoticed for 11 hours. Only a power-cycle by hand fixes it, so
-  # the push goes to the phone: at most one per 6 hours.
+  # infrared command through it then fails with "device is offline", and nothing else
+  # notices. Only a power-cycle by hand fixes it, so the push goes to the phone: at most
+  # one per 6 hours.
   - id: alert_switchbot_hub_offline
-    alias: Alert - SwitchBot hub offline (AC, ceiling light, speakers)
+    alias: Alert - SwitchBot hub offline
     mode: single
     triggers:
       - trigger: event
@@ -98,7 +98,7 @@ automation alerts:
         data:
           title: SwitchBot hub offline
           message: >-
-            {{ routine }} couldn't reach the AC, ceiling light or speakers: their SwitchBot hub
+            {{ routine }} couldn't reach a device behind the SwitchBot hub: the hub
             is offline. Unplug the hub for 10 seconds, then plug it back in. The rest of the routine still ran.
 
 # Desktop PC power: the "Desktop PC" switch wakes it with Wake-on-LAN and shuts it down
@@ -146,9 +146,9 @@ rest_command:
     method: GET
     timeout: 4
 
-# The washer's SmartThings link drops offline every few minutes (about 50 times a day,
-# its own Wi-Fi), so "run -> stop" was often "run -> unavailable -> stop" and the
-# "wash is done" push never fired. This remembers that a wash started.
+# A washer's SmartThings link can drop offline every few minutes, so "run -> stop" is often
+# "run -> unavailable -> stop" and a "wash is done" push keyed on that change never fires.
+# This remembers that a wash started.
 input_boolean:
   washer_running:
     name: Washing machine is running
