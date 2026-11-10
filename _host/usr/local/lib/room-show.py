@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# room-show: designed light "looks" for the bedroom (2026-10-19, rebuilt the same day).
+# room-show: designed light "looks" for a room's Hue lamps (2026-10-19, rebuilt the same day).
 # Each look is three colours that belong together: a BASE that washes the walls (floor lantern,
 # uplighter), an ACCENT on the desk (lightbars, strip) and a HIGHLIGHT on the small shelf lamps.
 # Inside a look the colours drift gently; every 100 s the room crossfades (20 s) to the next look.

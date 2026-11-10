@@ -228,7 +228,7 @@ def report(hours):
     since = now - hours * 3600
     win = [r for r in rows if r[0] >= since]
     names = [t[0] for t in TARGETS]
-    print(f"TCP connect test every 2 min, last {hours} h, Kuwait time. Each cell: loss % / median ms.")
+    print(f"TCP connect test every 2 min, last {hours} h, local time. Each cell: loss % / median ms.")
     print(f"{'hour':<6}" + "".join(f"{n:>12}" for n in names) + "   reading")
     first_hour = since - since % 3600
     for h in range(first_hour, now + 1, 3600):

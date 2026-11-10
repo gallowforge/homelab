@@ -12,7 +12,7 @@ services:
     # No host port: the UI is https://raspberrypi.example-tailnet.ts.net:8446
     # (Caddy). The cleartext http://192.168.1.10:3001 was closed on 2026-09-17.
     environment:
-      - TZ=Asia/Kuwait
+      - TZ=${TZ:-UTC}
     security_opt:
       - no-new-privileges:true
     stop_grace_period: 30s

@@ -11,7 +11,7 @@ services:
       - ./config:/config
       - /etc/localtime:/etc/localtime:ro
     environment:
-      - TZ=Asia/Kuwait
+      - TZ=${TZ:-UTC}
     restart: unless-stopped
     labels:
       - "com.centurylinklabs.watchtower.enable=true"

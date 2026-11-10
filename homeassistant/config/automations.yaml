@@ -4,11 +4,11 @@
   use_blueprint:
     path: smarthomesolver/tv_pause_lights_blueprint.yaml
     input:
-      tv_media_player: media_player.bedroom
+      tv_media_player: media_player.living_room
       starttime: '18:00:00'
       scene_target:
         entity_id:
-        - scene.bedroom_dimmed_2
+        - scene.living_room_movie
       endtime: '18:00:00'
 - id: '1733448889691'
   alias: TV Play Turn Off Lights Blueprint
@@ -16,7 +16,7 @@
   use_blueprint:
     path: smarthomesolver/tv_play_lights_blueprint.yaml
     input:
-      tv_media_player: media_player.bedroom
+      tv_media_player: media_player.living_room
       endtime: '18:00:00'
       scene_target:
         entity_id: scene.playing_tv_lighting

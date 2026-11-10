@@ -1,5 +1,5 @@
 [Unit]
-Description=Always-on Claude Code session in herdr (Remote Control from claude.ai)
+Description=Always-on Claude Code operator session in herdr
 Documentation=https://herdr.dev/docs/persistence-remote/
 Documentation=file:///home/pi/docker/docs/ai-operator.md
 After=network-online.target

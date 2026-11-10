@@ -1,4 +1,4 @@
-# 2026-10-20 wellness check (owner: "blazing fast, full speed all the time"): the Pi 5 NIC (macb)
+# 2026-10-20 wellness check (goal: full speed all the time): the Pi 5 NIC (macb)
 # boots with a 512-packet receive ring out of 8192 possible; eth0 had counted 21,175 receive drops
 # (rx_resource_errors = ring full) since boot, most likely during the 2026-10-20 HyperHDR overload.
 # A 4096 ring absorbs bursts (Syncthing on the LAN, streams, DNS storms) for ~8 MB of RAM.

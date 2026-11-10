@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Set the Samsung S90C picture mode through the SmartThings cloud (HA shell_command).
+"""Set the TV's picture mode through the SmartThings cloud (HA shell_command).
 
 Usage: tv_picture_mode.py "Standard" | "Movie" | "FILMMAKER MODE"
        tv_picture_mode.py --check   (exit 3 if HA's SmartThings token has expired)
@@ -8,7 +8,7 @@ HA's core SmartThings integration sees the TV but has no picture-mode control, w
 TV itself offers custom.picturemode. This borrows the integration's OAuth access token
 from .storage (HA keeps it fresh; script.tv_picture_mode polls the TV first so HA
 refreshes an old token) and never prints it. Exit 0 = the TV reports the new mode;
-exit 3 = the token is expired or refused (HA stopped renewing it, seen 2026-10-18): the
+exit 3 = the token is expired or refused (HA once stopped renewing it): the
 caller reloads the SmartThings integration, which renews it, and retries.
 """
 import json, sys, time, urllib.error, urllib.request

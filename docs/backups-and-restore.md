@@ -24,7 +24,7 @@ published.
 Not backed up, rebuilt instead: Docker images, Caddy's volumes, AdGuard's filter cache and
 query log, the host's Tailscale identity, the TLS certificate (`tailscale cert` again).
 
-The personal vault (about 65 GB) is not in any set. It lives on the Pi, the PC and the
+The personal file vault is not in any set. It lives on the Pi, the PC and the
 MacBook through Syncthing, with daily hardlink snapshots on the PC. Replication is not a
 backup, and the PC snapshots are what make it one.
 

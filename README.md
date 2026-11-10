@@ -6,7 +6,7 @@ A household quietly depends on a few services: DNS, the password vault, notes, t
 
 <a href="docs/design-decisions.md#gh-dark-mode-only"><picture><source media="(max-width: 767px)" srcset="docs/readme/numbers-dark-phone.webp 2.835x"><source srcset="docs/readme/numbers-dark.webp 2x"><img src="docs/readme/numbers-dark.webp" width="840" alt="15 services on one Raspberry Pi 5. 12 backup sets verified every night. A 10-second weekly restore drill, in RAM. 0 port forwards, with UPnP off." loading="lazy"></picture></a><a href="docs/design-decisions.md#gh-light-mode-only"><picture><source media="(max-width: 767px)" srcset="docs/readme/numbers-light-phone.webp 2.835x"><source srcset="docs/readme/numbers-light.webp 2x"><img src="docs/readme/numbers-light.webp" width="840" alt="15 services on one Raspberry Pi 5. 12 backup sets verified every night. A 10-second weekly restore drill, in RAM. 0 port forwards, with UPnP off." loading="lazy"></picture></a>
 
-<sub>Figures from the live Pi. This public copy carries 9 of its 15 containers, 9 of its 12 backup sets and 13 of its 20 timers; see <a href="#what-this-copy-leaves-out">what it leaves out</a>. Every terminal in these images is real output of this repo's scripts, run by <a href="scripts/readme-demo.sh"><code>scripts/readme-demo.sh</code></a> on synthetic data.</sub>
+<sub>Figures from the live Pi. This public copy carries 9 of its 15 containers, 9 of its 12 backup sets and 12 of its 20 timers; see <a href="#what-this-copy-leaves-out">what it leaves out</a>. Every terminal in these images is real output of this repo's scripts, run by <a href="scripts/readme-demo.sh"><code>scripts/readme-demo.sh</code></a> on synthetic data.</sub>
 
 ## Backups are verified before anything is deleted
 
@@ -82,7 +82,7 @@ The hardware watchdog stays off because on this flash stick an abrupt reset cost
 | Vaultwarden | Bitwarden-compatible password server | Caddy `:8452` only, no host port |
 | CouchDB | Obsidian LiveSync backend | Caddy `:8450` only, no host port |
 | Home Assistant | Home automation, HomeKit bridges, Hue scenes, TV picture mode | Caddy `:8443`; LAN `:8123` for phone shortcuts |
-| Syncthing | Replicates a 65 GB personal vault to the PC and the MacBook | GUI through Caddy `:8453` |
+| Syncthing | Replicates a personal file vault to the PC and the MacBook | GUI through Caddy `:8453` |
 | Uptime Kuma | Endpoint monitors, alerts through ntfy | Caddy `:8446` only, no host port |
 | Dockge | Web UI for the compose stacks. Holds `docker.sock` | Caddy `:8444` only, no host port |
 | Watchtower | The only automatic updater, with tiers and a cooldown | none |
@@ -157,7 +157,7 @@ TEST_TMP="$d/tmp" bash "$d/run-tests.sh"          # RESULT: 43 passed, 0 failed
 scripts/readme-demo.sh
 ```
 
-To adapt it to your own Pi (Raspberry Pi OS Lite 64-bit, Docker CE with Compose, Tailscale), clone it to `~/docker` and replace the placeholders `192.168.1.x`, `100.64.0.x`, `example-tailnet.ts.net` and the user `pi`. Then:
+To adapt it to your own Pi (Raspberry Pi OS Lite 64-bit, Docker CE with Compose, Tailscale), clone it to `~/docker` and replace the placeholders `192.168.1.x`, `100.64.0.x`, `example-tailnet.ts.net` and the user `pi`. Every compose file reads its time zone from `TZ`, a tz database name such as `Europe/Berlin`, and falls back to `UTC` when it is unset: put `TZ=...` in each stack's `.env`. The host timers run on the system time zone (`sudo timedatectl set-timezone <zone>`). Then:
 
 ```bash
 for f in */.env.example; do install -m 600 "$f" "${f%.example}"; done   # then fill in each .env
@@ -179,7 +179,7 @@ Every push and pull request runs [`validate.yml`](.github/workflows/validate.yml
 
 | Check | What it covers |
 | --- | --- |
-| `bash -n` and `shellcheck --severity=error` | All 19 shell scripts, found by shebang, since most host scripts have no extension |
+| `bash -n` and `shellcheck --severity=error` | All 18 shell scripts, found by shebang, since most host scripts have no extension |
 | `python -m py_compile` | All 5 Python files |
 | YAML parse | All 14 compose and Home Assistant files; HA's `!include` and `!secret` tags are read as opaque values |
 | `homelab-backup --check-config` | The backup list: 9 sets, every key and path validated |

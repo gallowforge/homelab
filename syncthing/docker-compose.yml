@@ -11,7 +11,7 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
-      - TZ=Asia/Kuwait
+      - TZ=${TZ:-UTC}
     network_mode: host
     security_opt:
       - no-new-privileges:true

@@ -6,7 +6,7 @@
       - brightness
       color_mode:
       brightness:
-      friendly_name: Bedroom dimming ceiling lights Light
+      friendly_name: Ceiling dimmer
       supported_features: 0
       state: 'off'
     light.cozy_light:

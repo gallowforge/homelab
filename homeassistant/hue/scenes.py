@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
-"""Bedroom Hue scenes (v2, 2026-10-17). Creates or updates them on the Hue bridge.
+"""Hue scenes for one room (v2). Creates or updates them on the Hue bridge.
 
 Run: sudo python3 ~/docker/homeassistant/hue/scenes.py [scene name ...]
 (reads the bridge key from HA's hue entry). Scenes with the same name are updated in place.
 
-The room, from a photo and the Hue Light placement screen:
-  desk wall (left)      Left Lightbar, Right Lightbar (Hue Play, behind the PC monitor), LED Strip (under the desk)
-  corner left of the TV Floor Lantern (tall torchiere next to the curtain)
+The room's lamps, from the Hue light placement screen:
+  desk wall (left)      Left Lightbar, Right Lightbar (Hue Play, behind a monitor), LED Strip (under the desk)
+  corner left of the TV Floor Lantern (tall torchiere)
   TV                    Floor Uplighter
-  shelves right of TV   Retro Lamp (top shelf), Cozy Light (middle), Mushroom Lamp (shelf), Glowing Sphere (low, by the bed)
+  shelves right of TV   Retro Lamp (top shelf), Cozy Light (middle), Mushroom Lamp (shelf), Glowing Sphere (low)
 
 It also keeps the bridge tidy (idempotent): light names = device names, power-cut behaviour
 "powerfail" (lamps come back as they were, not full white), zones Desk and Shelves, and it
 deletes scenes not defined here (export the bridge's scenes before the first run).
 
-Rules (owner feedback v1: "lights don't match brightness", "some turn off and not alongside the others"):
-  * every light is on in every scene (only Sleep keeps the lamps by the bed off); no effects (the bridge runs effects at their own brightness)
+Rules (from feedback on v1: "lights don't match brightness", "some turn off and not alongside the others"):
+  * every light is on in every scene (only Sleep keeps the shelf lamps off); no effects (the bridge runs effects at their own brightness)
   * brightness is balanced so every lamp LOOKS equally bright: each lamp's percentage is
     worked out from its lumen output and from how bright its colour is (deep blue and red
     give far fewer lumens than amber at the same %), then the whole scene is scaled to its level.
@@ -28,18 +28,19 @@ LUMENS = {"Left Lightbar": 530, "Right Lightbar": 530, "LED Strip": 1000,  # str
 DESK, CORNER, TV = ("Left Lightbar", "Right Lightbar", "LED Strip"), "Floor Lantern", "Floor Uplighter"
 
 SHELVES = ("Retro Lamp", "Cozy Light", "Mushroom Lamp", "Glowing Sphere")
+ROOM = "Living room"  # the Hue room the scenes belong to; HA names them scene.living_room_<scene>
 ZONES = {"Desk": (DESK, "office"), "Shelves": (SHELVES, "lounge")}
-AMBER = "#FE9F2C"  # the owner's own scene colour (Cozy / Movie / Cinematic)
+AMBER = "#FE9F2C"  # the house amber (Cozy / Movie / Cinematic)
 
 # level = % of the lamp that has to work hardest (deep blue on a Play bar, usually).
 S = {
- # the owner's routine scenes (HA scripts use them): his colours, now balanced
+ # routine scenes (HA scripts use them), balanced
  "Daylight": dict(level=100, c={n: "2570K" for n in LUMENS}),
  "Cozy": dict(level=95, c={n: AMBER for n in LUMENS}),
  "Movie": dict(level=72, c={n: AMBER for n in LUMENS}),
  "Cinematic": dict(level=24, c={n: AMBER for n in LUMENS}),
  "Sleep": dict(level=12, c={n: (None if n in SHELVES else "#FEA026") for n in LUMENS}),
- # mood scenes (2026-10-17)
+ # mood scenes
  "Golden Hour": dict(level=90, c={"Left Lightbar": "#FF9A3C", "Right Lightbar": "#FF9A3C", "LED Strip": "#FF8A2A",
     CORNER: "#FFB648", TV: "#FF8A2A", "Retro Lamp": "2200K", "Cozy Light": "#FFA552",
     "Mushroom Lamp": "#FFB76B", "Glowing Sphere": "#FF8F45"}),
@@ -49,7 +50,7 @@ S = {
  "Embers": dict(level=30, c={"Left Lightbar": "#FF4D0A", "Right Lightbar": "#FF4D0A", "LED Strip": "#FF4D0A",
     CORNER: "#FF6A14", TV: "#FF5A0F", "Retro Lamp": "#FF7A1F", "Cozy Light": "#FF5A0F",
     "Mushroom Lamp": "#FF6A14", "Glowing Sphere": "#FF4D0A"}),
- "Neon Tokyo": dict(level=85, c={"Left Lightbar": "#FF1F8E", "Right Lightbar": "#FF1F8E", "LED Strip": "#8A2BFF",
+ "Neon Nights": dict(level=85, c={"Left Lightbar": "#FF1F8E", "Right Lightbar": "#FF1F8E", "LED Strip": "#8A2BFF",
     CORNER: "#00D8FF", TV: "#6A3BFF", "Retro Lamp": "#FF2E9A", "Cozy Light": "#B32BFF",
     "Mushroom Lamp": "#00C8FF", "Glowing Sphere": "#FF1F8E"}),
  "Horror Night": dict(level=35, c={"Left Lightbar": "#FF1010", "Right Lightbar": "#FF1010", "LED Strip": "#E00008",
@@ -132,7 +133,7 @@ def main():
         if zname not in zones:
             api("POST", "zone", {"type": "zone", "metadata": {"name": zname, "archetype": archetype}, "children": children})
             print("created zone", zname)
-    room = next(r["id"] for r in api("GET", "room")["data"] if r["metadata"]["name"] == "Bedroom")
+    room = next(r["id"] for r in api("GET", "room")["data"] if r["metadata"]["name"] == ROOM)
     existing = {s["metadata"]["name"]: s["id"] for s in api("GET", "scene")["data"] if s["group"]["rid"] == room}
     only = sys.argv[1:]
     for name, spec in S.items():

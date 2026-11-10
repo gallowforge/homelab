@@ -1,4 +1,4 @@
-# 2026-10-20 (owner: "as fast as possible all the time, 24/7"): keep all four cores at full clock
+# 2026-10-20 (goal: as fast as possible, 24/7): keep all four cores at full clock
 # (2.4 GHz) instead of the ondemand governor's idle downclocking, so a burst of DNS lookups never
 # waits for the clock to ramp up. Measured headroom: 51 C, never throttled, 5.07 V supply.
 [Unit]

@@ -17,7 +17,6 @@ usr/local/sbin/homelab-heartbeat-gate            0755 root root -
 usr/local/bin/tv-mood                            0755 root root -
 usr/local/bin/hyperhdr-guard.sh                  0755 root root -
 usr/local/lib/room-show.py                       0755 root root -
-usr/local/bin/claude-login-check.sh             0755 root root -
 etc/homelab/backups.conf                         0644 root root -
 etc/systemd/system/adguard-pin.service         0644 root root daemon-reload
 etc/systemd/system/adguard-pin.timer           0644 root root daemon-reload
@@ -58,8 +57,6 @@ etc/systemd/system/zram-swap.service 0644 root root daemon-reload
 etc/systemd/system/cpu-performance.service      0644 root root daemon-reload
 etc/systemd/system/eth-ring.service              0644 root root daemon-reload
 etc/systemd/system/hyperhdr@.service.d/limits.conf 0644 root root daemon-reload
-etc/systemd/system/claude-login-check.service   0644 root root daemon-reload
-etc/systemd/system/claude-login-check.timer     0644 root root daemon-reload
 usr/local/bin/homelab-netprobe                  0755 root root -
 etc/systemd/system/homelab-netprobe.service     0644 root root daemon-reload
 etc/systemd/system/homelab-netprobe.timer       0644 root root daemon-reload

@@ -1,11 +1,11 @@
 # TV ambient lighting
 
-Nine Hue lamps in the bedroom follow the TV picture, from any source on the TV, with no
-Hue Sync Box and the PC off.
+A room's Hue lamps (nine here) follow the TV picture, from any source on the TV, with no
+Hue Sync Box and no PC running.
 
 ```mermaid
 flowchart LR
-  tv["Samsung TV<br/>HyperTizen app"] -- "5x4 sample grid,<br/>WebSocket, ~5 fps" --> mood["tv-mood<br/>Pi :8095"]
+  tv["TV<br/>HyperTizen app"] -- "5x4 sample grid,<br/>WebSocket, ~5 fps" --> mood["tv-mood<br/>Pi :8095"]
   ha["Home Assistant"] -- "sync on/off, picture mode,<br/>app and title on screen" --> mood
   mood -- "9x4 RGB image,<br/>priority 90" --> hh["HyperHDR<br/>Pi"]
   hh -- "Hue Entertainment" --> bridge["Hue bridge<br/>9 lamps"]
@@ -29,7 +29,7 @@ flowchart LR
   - Colour follows in about 0.45 s. Brightness always glides, capped at 35% of full range
     per second, so a flash or a cut to black fades instead of jumping.
 - **HyperHDR** streams the result to the Hue bridge over the Entertainment API.
-- **Home Assistant** decides when it runs. The owner's "Sync lights" shortcut turns it on;
+- **Home Assistant** decides when it runs. A "Sync lights" shortcut turns it on;
   every lighting routine and "Stop syncing" turn it off. When off, tv-mood sends nothing,
   so switching the TV on cannot start the sync by itself. The TV's picture mode caps the
   brightness: Standard 100%, Movie 80%, Filmmaker Mode 60%.

@@ -239,9 +239,9 @@ if [ -n "$wk" ]; then
       # A bulk vault sync (100+ files in the window) explains the writes when
       # they stay within the usual limit plus 5x the synced content (Syncthing
       # writes a temp copy, renames, updates its index: 1.8x-4x seen) and clears
-      # alone: say so at low priority. 2026-11-05: 249 film files = 23 GiB/day;
-      # 2026-11-07: 13,669 files / 70.7 GiB = 130 GiB/day, both woke him at
-      # default for nothing.
+      # alone: say so at low priority. 2026-11-05: 249 large files = 23 GiB/day;
+      # 2026-11-07: 13,669 files / 70.7 GiB = 130 GiB/day, both alerted at
+      # default priority for nothing.
       wsync=$(docker logs syncthing --since "${wdt}s" 2>&1 | grep 'Synced file' | grep -oP 'file\.size=\K[0-9]+' | awk '{n++; s+=$1} END {printf "%d %d", n, s/1073741824}')
       wsync_n=${wsync% *}; wsync_g=${wsync#* }
       wwin=$(( (wk - wprev_k) / 1048576 ))
@@ -573,7 +573,7 @@ release_watch updates-watchtower Watchtower nicholas-fedor/watchtower "$wt_run" 
 
 # ---- 12d. reminders: dated owner actions that nothing else watches -----------
 # /etc/homelab/reminders.conf, one per line: name|YYYY-MM-DD|what happens then.
-# silent until 3 days before the date (owner 2026-10-03: renews on his own), then high priority daily until the date is moved.
+# silent until 3 days before the date (renewals are done by hand), then high priority daily until the date is moved.
 if [ -r "$REMINDERS" ]; then
   while IFS='|' read -r rname rdate rtext; do
     case "$rname" in ''|'#'*) continue ;; esac

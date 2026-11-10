@@ -16,7 +16,7 @@ services:
     env_file:
       - .env
     environment:
-      - TZ=Asia/Kuwait
+      - TZ=${TZ:-UTC}
       - LOGIN_RATELIMIT_SECONDS=60
       - LOGIN_RATELIMIT_MAX_BURST=5
       - ADMIN_RATELIMIT_SECONDS=300

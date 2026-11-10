@@ -26,7 +26,7 @@ services:
       # /etc/homelab/secrets.env - regenerate this file if the topic changes.
       - .env
     environment:
-      TZ: Asia/Kuwait                          # the schedule below is local time
+      TZ: ${TZ:-UTC}                           # the schedule below is local time
       WATCHTOWER_LABEL_ENABLE: "true"          # only containers labelled enable=true
       WATCHTOWER_SCHEDULE: "0 30 5 * * *"      # daily 05:30, after the 05:00 homelab-backup run
       WATCHTOWER_COOLDOWN_DELAY: "3d"          # an image must be >3 days old before it is applied

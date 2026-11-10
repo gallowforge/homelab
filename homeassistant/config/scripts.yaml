@@ -1,13 +1,12 @@
-# The owner's 9 home routines (rebuilt 2026-10-16 from his Apple Shortcuts, captured exactly).
-# iPhone Shortcuts call these instead of Apple Home device ids, so they survive HomeKit changes.
-# The SwitchBot-app part of Movie time / Make it cozy (IR ceiling LED orange + brighter) stays
-# in the Shortcut itself ("Switchbot Cozy Ceiling Mode"); HA can only switch that LED on/off.
-# Steps that drive the cloud-only devices (ceiling LED and AC = SwitchBot infrared through
-# the Bedroom Hub Mini; ceiling dimmer and air filter = Tuya) carry continue_on_error, so one
-# offline device never stops the rest of a routine (2026-10-29: the Bedroom hub dropped off the
-# SwitchBot cloud and Pure Cinema / Game On stopped before their Hue scene and TV mode).
-let_there_be_light:
-  alias: Let there be light
+# Routines exposed to a phone's shortcuts (through the webhook in configuration.yaml), plus
+# the helpers they share. Shortcuts call these instead of Apple Home device ids, so they
+# survive HomeKit changes. A few illustrative routines are shown; more follow the same shape.
+# Steps that drive cloud-only devices (a ceiling LED through a SwitchBot infrared hub, a Tuya
+# ceiling dimmer) carry continue_on_error, so one offline device never stops the rest of a
+# routine (a hub once dropped off the SwitchBot cloud and two routines stopped before their
+# Hue scene and TV mode).
+lights_up:
+  alias: Lights up
   icon: mdi:white-balance-sunny
   sequence:
     - action: script.hue_sync
@@ -20,7 +19,7 @@ let_there_be_light:
       continue_on_error: true
       data: {brightness_pct: 100}
     - action: scene.turn_on
-      target: {entity_id: scene.bedroom_daylight}
+      target: {entity_id: scene.living_room_daylight}
     - action: script.turn_on
       target: {entity_id: script.tv_picture_mode}
       data: {variables: {mode: "Standard"}}
@@ -34,27 +33,12 @@ movie_time:
       target: {entity_id: light.ceiling_dimmer}
       continue_on_error: true
     - action: scene.turn_on
-      target: {entity_id: scene.bedroom_movie}
+      target: {entity_id: scene.living_room_movie}
     - action: script.turn_on
       target: {entity_id: script.tv_picture_mode}
       data: {variables: {mode: "Movie"}}
-make_it_cozy:
-  alias: Make it cozy
-  icon: mdi:candle
-  sequence:
-    - action: script.hue_sync
-      data: {state: false}
-    - action: light.turn_on
-      target: {entity_id: light.ceiling_dimmer}
-      continue_on_error: true
-      data: {brightness_pct: 10}
-    - action: scene.turn_on
-      target: {entity_id: scene.bedroom_cozy}
-    - action: script.turn_on
-      target: {entity_id: script.tv_picture_mode}
-      data: {variables: {mode: "Standard"}}
-make_it_cinematic:
-  alias: Make it Cinematic
+cinema:
+  alias: Cinema
   icon: mdi:filmstrip
   sequence:
     - action: script.hue_sync
@@ -63,97 +47,49 @@ make_it_cinematic:
       target: {entity_id: [light.ceiling_led, light.ceiling_dimmer]}
       continue_on_error: true
     - action: scene.turn_on
-      target: {entity_id: scene.bedroom_dimmed_2}
+      target: {entity_id: scene.living_room_cinematic}
     - action: script.turn_on
       target: {entity_id: script.tv_picture_mode}
       data: {variables: {mode: "FILMMAKER MODE"}}
-i_need_some_air:
-  alias: I Need Some Air
-  icon: mdi:weather-windy
-  sequence:
-    - action: switch.turn_on
-      target: {entity_id: [switch.air_filter, switch.ac_cool]}
-      continue_on_error: true
-i_need_some_silence:
-  alias: I Need Some Silence
-  icon: mdi:volume-off
-  sequence:
-    - action: switch.turn_off
-      target: {entity_id: [switch.air_filter, switch.ac_cool]}
-      continue_on_error: true
-im_home:
-  alias: I'm Home
-  icon: mdi:home-import-outline
+# A mood routine: a Hue scene from ../hue/scenes.py, ceiling lights to match, and the TV
+# picture mode by lighting level (bright = Standard, dim = Movie, darkest = FILMMAKER MODE).
+golden_hour:
+  alias: Golden Hour
+  icon: mdi:weather-sunset
   sequence:
     - action: script.hue_sync
       data: {state: false}
-    - action: scene.turn_on
-      target: {entity_id: scene.bedroom_daylight}
-    - action: switch.turn_on
-      target: {entity_id: [switch.air_filter, switch.ac_cool]}
-      continue_on_error: true
-    - action: light.turn_on
-      target: {entity_id: light.ceiling_dimmer}
-      continue_on_error: true
-      data: {brightness_pct: 100}
-    - action: script.turn_on
-      target: {entity_id: script.tv_picture_mode}
-      data: {variables: {mode: "Standard"}}
-leaving_home:
-  alias: Leaving Home
-  icon: mdi:home-export-outline
-  sequence:
-    - action: script.hue_sync
-      data: {state: false}
-    # Added 2026-10-18: the Hue lamps and the TV used to stay on after leaving.
-    # TV first, and wait (max 20 s) until it reports off before the lights change.
-    # Only when the TV is on: the Samsung "off" is a power-key press, and on a TV that is already
-    # off it switches the TV ON (Off To Bed did exactly that at 04:57).
-    - if:
-        - condition: state
-          entity_id: media_player.samsung_tv
-          state: "on"
-      then:
-        - action: media_player.turn_off
-          target: {entity_id: media_player.samsung_tv}
-          continue_on_error: true
-        - wait_template: "{{ is_state('media_player.samsung_tv', 'off') }}"
-          timeout: "00:00:20"
-          continue_on_timeout: true
-    - action: switch.turn_off
-      target: {entity_id: [switch.ac_cool, switch.air_filter]}
-      continue_on_error: true
-    - action: light.turn_off
-      target: {entity_id: [light.ceiling_led, light.ceiling_dimmer, light.bedroom]}
-      continue_on_error: true
-off_to_bed:
-  alias: Off To Bed
-  icon: mdi:bed
-  sequence:
-    - action: script.hue_sync
-      data: {state: false}
-    # Added 2026-10-18: the TV goes off too (the PC is left alone; it may hold running work).
-    # TV first, and wait (max 20 s) until it reports off before the lights change.
-    # Only when the TV is on: the Samsung "off" is a power-key press, and on a TV that is already
-    # off it switches the TV ON (Off To Bed did exactly that at 04:57).
-    - if:
-        - condition: state
-          entity_id: media_player.samsung_tv
-          state: "on"
-      then:
-        - action: media_player.turn_off
-          target: {entity_id: media_player.samsung_tv}
-          continue_on_error: true
-        - wait_template: "{{ is_state('media_player.samsung_tv', 'off') }}"
-          timeout: "00:00:20"
-          continue_on_timeout: true
     - action: light.turn_off
       target: {entity_id: [light.ceiling_led, light.ceiling_dimmer]}
       continue_on_error: true
     - action: scene.turn_on
-      target: {entity_id: scene.bedroom_night_light}
-    - action: switch.turn_on
-      target: {entity_id: [switch.air_filter, switch.ac_cool]}
+      target: {entity_id: scene.living_room_golden_hour}
+      data: {transition: 2}
+    - action: script.turn_on
+      target: {entity_id: script.tv_picture_mode}
+      data: {variables: {mode: "Standard"}}
+all_off:
+  alias: All off
+  icon: mdi:power
+  sequence:
+    - action: script.hue_sync
+      data: {state: false}
+    # TV first, and wait (max 20 s) until it reports off before the lights change.
+    # Only when the TV is on: the TV's "off" is a power-key press, and on a TV that is already
+    # off it switches the TV ON.
+    - if:
+        - condition: state
+          entity_id: media_player.tv
+          state: "on"
+      then:
+        - action: media_player.turn_off
+          target: {entity_id: media_player.tv}
+          continue_on_error: true
+        - wait_template: "{{ is_state('media_player.tv', 'off') }}"
+          timeout: "00:00:20"
+          continue_on_timeout: true
+    - action: light.turn_off
+      target: {entity_id: [light.ceiling_led, light.ceiling_dimmer, light.living_room]}
       continue_on_error: true
 tv_picture_mode:
   alias: TV Picture Mode
@@ -167,11 +103,11 @@ tv_picture_mode:
       target: {entity_id: input_select.tv_picture_mode}
       data: {option: "{{ mode }}"}
     - condition: state
-      entity_id: media_player.samsung_tv
+      entity_id: media_player.tv
       state: "on"
     # A poll makes HA refresh the SmartThings token if it is old, before the script borrows it.
     - action: homeassistant.update_entity
-      target: {entity_id: media_player.samsung_tv_smartthings}
+      target: {entity_id: media_player.tv_smartthings}
       continue_on_error: true
     - delay: 2
     - repeat:
@@ -184,190 +120,21 @@ tv_picture_mode:
           - if: "{{ r is defined and r.returncode == 3 }}"
             then:
               - action: homeassistant.reload_config_entry
-                data: {entry_id: "{{ config_entry_id('media_player.samsung_tv_smartthings') }}"}
+                data: {entry_id: "{{ config_entry_id('media_player.tv_smartthings') }}"}
                 continue_on_error: true
               - delay: 15
           - if: "{{ r is not defined or r.returncode not in [0, 3] }}"
             then: [{delay: 10}]
         until: "{{ (r is defined and r.returncode == 0) or repeat.index >= 3 }}"
 
-# Mood routines (added 2026-10-17): Hue scenes from ../hue/scenes.py, ceiling lights to
-# match, TV picture mode by lighting level (bright = Standard, dim = Movie, darkest = FILMMAKER).
-golden_hour:
-  alias: Golden Hour
-  icon: mdi:weather-sunset
-  sequence:
-    - action: script.hue_sync
-      data: {state: false}
-    - action: light.turn_off
-      target: {entity_id: [light.ceiling_led, light.ceiling_dimmer]}
-      continue_on_error: true
-    - action: scene.turn_on
-      target: {entity_id: scene.bedroom_golden_hour}
-      data: {transition: 2}
-    - action: script.turn_on
-      target: {entity_id: script.tv_picture_mode}
-      data: {variables: {mode: "Standard"}}
-light_the_fire:
-  alias: Light the Fire
-  icon: mdi:fireplace
-  sequence:
-    - action: script.hue_sync
-      data: {state: false}
-    - action: light.turn_off
-      target: {entity_id: [light.ceiling_led, light.ceiling_dimmer]}
-      continue_on_error: true
-    - action: scene.turn_on
-      target: {entity_id: scene.bedroom_fireplace}
-      data: {transition: 2}
-    - action: script.turn_on
-      target: {entity_id: script.tv_picture_mode}
-      data: {variables: {mode: "Movie"}}
-wind_down:
-  alias: Wind Down
-  icon: mdi:campfire
-  sequence:
-    - action: script.hue_sync
-      data: {state: false}
-    - action: light.turn_off
-      target: {entity_id: [light.ceiling_led, light.ceiling_dimmer]}
-      continue_on_error: true
-    - action: scene.turn_on
-      target: {entity_id: scene.bedroom_embers}
-      data: {transition: 2}
-    - action: script.turn_on
-      target: {entity_id: script.tv_picture_mode}
-      data: {variables: {mode: "FILMMAKER MODE"}}
-neon_nights:
-  alias: Neon Nights
-  icon: mdi:city-variant
-  sequence:
-    - action: script.hue_sync
-      data: {state: false}
-    - action: light.turn_off
-      target: {entity_id: [light.ceiling_led, light.ceiling_dimmer]}
-      continue_on_error: true
-    - action: scene.turn_on
-      target: {entity_id: scene.bedroom_neon_tokyo}
-      data: {transition: 2}
-    - action: script.turn_on
-      target: {entity_id: script.tv_picture_mode}
-      data: {variables: {mode: "Movie"}}
-horror_night:
-  alias: Horror Night
-  icon: mdi:skull
-  sequence:
-    - action: script.hue_sync
-      data: {state: false}
-    - action: light.turn_off
-      target: {entity_id: [light.ceiling_led, light.ceiling_dimmer]}
-      continue_on_error: true
-    - action: scene.turn_on
-      target: {entity_id: scene.bedroom_horror_night}
-      data: {transition: 2}
-    - action: script.turn_on
-      target: {entity_id: script.tv_picture_mode}
-      data: {variables: {mode: "FILMMAKER MODE"}}
-northern_lights:
-  alias: Northern Lights
-  icon: mdi:aurora
-  sequence:
-    - action: script.hue_sync
-      data: {state: false}
-    - action: light.turn_off
-      target: {entity_id: [light.ceiling_led, light.ceiling_dimmer]}
-      continue_on_error: true
-    - action: scene.turn_on
-      target: {entity_id: scene.bedroom_northern_lights}
-      data: {transition: 2}
-    - action: script.turn_on
-      target: {entity_id: script.tv_picture_mode}
-      data: {variables: {mode: "Movie"}}
-rainy_night:
-  alias: Rainy Night
-  icon: mdi:weather-pouring
-  sequence:
-    - action: script.hue_sync
-      data: {state: false}
-    - action: light.turn_off
-      target: {entity_id: [light.ceiling_led, light.ceiling_dimmer]}
-      continue_on_error: true
-    - action: scene.turn_on
-      target: {entity_id: scene.bedroom_rainy_night}
-      data: {transition: 2}
-    - action: script.turn_on
-      target: {entity_id: script.tv_picture_mode}
-      data: {variables: {mode: "Movie"}}
-time_to_focus:
-  alias: Time to Focus
-  icon: mdi:head-lightbulb
-  sequence:
-    - action: script.hue_sync
-      data: {state: false}
-    - action: light.turn_off
-      target: {entity_id: light.ceiling_led}
-      continue_on_error: true
-    - action: light.turn_on
-      target: {entity_id: light.ceiling_dimmer}
-      continue_on_error: true
-      data: {brightness_pct: 100}
-    - action: scene.turn_on
-      target: {entity_id: scene.bedroom_focus}
-      data: {transition: 2}
-    - action: script.turn_on
-      target: {entity_id: script.tv_picture_mode}
-      data: {variables: {mode: "Standard"}}
-game_on:
-  alias: Game On
-  icon: mdi:controller
-  sequence:
-    - action: script.hue_sync
-      data: {state: false}
-    - action: light.turn_off
-      target: {entity_id: [light.ceiling_led, light.ceiling_dimmer]}
-      continue_on_error: true
-    - action: scene.turn_on
-      target: {entity_id: scene.bedroom_game_on}
-      data: {transition: 2}
-pure_cinema:
-  alias: Pure Cinema
-  icon: mdi:projector
-  sequence:
-    - action: script.hue_sync
-      data: {state: false}
-    - action: light.turn_off
-      target: {entity_id: [light.ceiling_led, light.ceiling_dimmer]}
-      continue_on_error: true
-    - action: scene.turn_on
-      target: {entity_id: scene.bedroom_pure_cinema}
-      data: {transition: 2}
-    - action: script.turn_on
-      target: {entity_id: script.tv_picture_mode}
-      data: {variables: {mode: "FILMMAKER MODE"}}
-party_time:
-  alias: Party Time
-  icon: mdi:party-popper
-  sequence:
-    - action: script.hue_sync
-      data: {state: false}
-    - action: light.turn_off
-      target: {entity_id: [light.ceiling_led, light.ceiling_dimmer]}
-      continue_on_error: true
-    - action: hue.activate_scene
-      target: {entity_id: scene.bedroom_party}
-      data: {dynamic: true, transition: 2}
-    - action: script.turn_on
-      target: {entity_id: script.tv_picture_mode}
-      data: {variables: {mode: "Standard"}}
-
 # Hue screen sync (TV -> tv-mood -> HyperHDR on this Pi). Lighting routines above switch it off so
-# their scene sticks and stays; only "Sync lights" switches it on (owner, 2026-10-21).
+# their scene sticks and stays; only "Sync lights" switches it on.
 hue_sync:
   alias: Hue screen sync
   icon: mdi:monitor-shimmer
   mode: queued
   fields:
-    state: {description: "true = lamps follow the PC screen, false = pause", example: false}
+    state: {description: "true = lamps follow the screen, false = pause", example: false}
   sequence:
     - action: rest_command.hue_sync
       data: {state: "{{ 'true' if state else 'false' }}"}
@@ -392,56 +159,5 @@ stop_syncing:
     - action: script.hue_sync
       data: {state: false}
     - action: scene.turn_on
-      target: {entity_id: scene.bedroom_cozy}
+      target: {entity_id: scene.living_room_cozy}
       data: {transition: 2}
-
-# PC couch/desk mode (added 2026-10-18). shell_command.pc_remote -> pc-remote on the PC.
-# Couch mode wakes the PC if needed and waits for its desktop (up to about 2 minutes).
-couch_mode:
-  alias: Couch mode
-  icon: mdi:sofa
-  mode: single
-  sequence:
-    - if:
-        - condition: state
-          entity_id: switch.desktop_pc
-          state: "off"
-      then:
-        - action: switch.turn_on
-          target: {entity_id: switch.desktop_pc}
-    - repeat:
-        sequence:
-          - action: shell_command.pc_remote
-            data: {action: couch}
-            response_variable: r
-            continue_on_error: true
-          - if: "{{ r is not defined or r.returncode != 0 }}"
-            then: [{delay: 8}]
-        until: "{{ (r is defined and r.returncode == 0) or repeat.index >= 15 }}"
-desk_mode:
-  alias: Desk mode
-  icon: mdi:monitor
-  sequence:
-    - condition: state
-      entity_id: switch.desktop_pc
-      state: "on"
-    - action: shell_command.pc_remote
-      data: {action: desk}
-big_picture_on:
-  alias: Big Picture on
-  icon: mdi:steam
-  sequence:
-    - condition: state
-      entity_id: switch.desktop_pc
-      state: "on"
-    - action: shell_command.pc_remote
-      data: {action: bigpicture-on}
-big_picture_off:
-  alias: Big Picture off
-  icon: mdi:steam
-  sequence:
-    - condition: state
-      entity_id: switch.desktop_pc
-      state: "on"
-    - action: shell_command.pc_remote
-      data: {action: bigpicture-off}

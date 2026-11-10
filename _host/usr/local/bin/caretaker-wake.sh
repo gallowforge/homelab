@@ -16,7 +16,7 @@
 # is the alert path that matters; this one is extra).
 set -uo pipefail
 HERDR=/home/pi/.local/bin/herdr
-LABEL=claude-rc-new                # workspace that holds the session (same label as claude-session-ensure.sh)
+LABEL=claude-operator              # workspace that holds the session (same label as claude-session-ensure.sh)
 RUN_USER=pi
 STAMP_DIR=/run/homelab            # tmpfs: no flash writes
 ALERT_MIN_GAP=1200                # at most one alert wake-up per 20 min (a storm is one event)

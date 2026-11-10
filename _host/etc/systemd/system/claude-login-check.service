@@ -1,8 +1,0 @@
-[Unit]
-Description=Warn the owner before the Pi's Claude Code login (30-day) runs out
-OnFailure=homelab-failure@%n.service
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/bin/claude-login-check.sh
-TimeoutStartSec=2min

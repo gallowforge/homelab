@@ -14,7 +14,7 @@ services:
     container_name: caddy
     restart: unless-stopped
     environment:
-      TZ: Asia/Kuwait
+      TZ: ${TZ:-UTC}
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
     security_opt:

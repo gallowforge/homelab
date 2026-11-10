@@ -13,7 +13,7 @@ services:
       - /home/pi/docker:/home/pi/docker
     environment:
       - DOCKGE_STACKS_DIR=/home/pi/docker
-      - TZ=Asia/Kuwait
+      - TZ=${TZ:-UTC}
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
     security_opt:

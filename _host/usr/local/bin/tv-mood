@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""tv-mood - calm Hue ambience from the Samsung TV picture (2026-10-18, Pi caretaker).
+"""tv-mood - calm Hue ambience from the TV picture (2026-10-18, Pi caretaker).
 
 The TV app HyperTizen (a patched build; the patches are not in this public copy) samples a 5x4 grid of single pixels over the picture, ~5 times
 a second, and sends them as a 64x48 PNG with one block per point. Single pixels flicker with every
@@ -17,13 +17,13 @@ detail, so this sits between the TV and HyperHDR and turns them into a steady ro
   3. colour follows in ~0.45 s; brightness always glides (~1.2 s, capped at 35 %/s), so lamps fade
      up and down instead of jumping; HyperHDR adds one short 150 ms blend between frames
 Picture mode (from HA): Standard full brightness, Movie 80 %, FILMMAKER MODE 60 %.
-The sync runs ONLY when the owner asked for it (2026-10-21: "I have a shortcut for that"):
+The sync runs ONLY when someone asked for it (a shortcut, never by itself):
 Home Assistant's script.hue_sync calls GET /sync/true ("Sync lights") or /sync/false (every
 lighting routine and "Stop syncing") on :8098. Off = nothing is sent to HyperHDR at all, so
 turning the TV on cannot start it. On = frames flow; the director hands the lamps back (HyperHDR
 output off) when no screen feeds it for 10 s and takes them again when one does.
 Output: a 9x4 RGB image (HyperHDR ignores 1-pixel-tall ones) to HyperHDR (127.0.0.1:19444, priority 90), one pixel per lamp in
-the Hue area "PC Gaming" channel order; HyperHDR streams it to the bridge.
+the Hue entertainment area's channel order; HyperHDR streams it to the bridge.
 The TV app is pointed here with rpcServer = ws://192.168.1.10:8095/ (docs/tv-ambient-lighting.md).
 """
 import base64, collections, colorsys, io, json, math, os, socket, struct, threading, time
@@ -53,10 +53,10 @@ COLS, ROWS = 5, 4
 ZONES = {(c, r): (int((c + 0.5) * 64 / COLS), int((r + 0.5) * 48 / ROWS)) for r in range(ROWS) for c in range(COLS)}
 def _z(cols, rows): return [(c, r) for c in cols for r in rows]
 # Hue channel order of the area and the part of the picture each lamp follows, seen from the sofa
-# facing the TV (owner's own floor plan, 2026-10-19; the lamp test confirmed every channel): desk
+# facing the TV (from a floor plan of the room; the lamp test confirmed every channel): desk
 # with both Play bars and the strip on the left wall, floor lantern just left of the TV, corner
 # shelves right of the TV (Cozy on the 2nd shelf nearest the TV, Mushroom 3rd, Retro top), the
-# sphere on the right wall by the bed, the uplighter behind the sofa (whole picture).
+# sphere low on the right wall, the uplighter behind the sofa (whole picture).
 LAMPS = [_z([0], [0, 1, 2]),          # Left Lightbar   (desk, left wall)
          _z([0], [1, 2, 3]),          # Right Lightbar  (desk, left wall)
          _z([0, 1], [2, 3]),          # LED Strip       (desk, left wall, low)
@@ -65,7 +65,7 @@ LAMPS = [_z([0], [0, 1, 2]),          # Left Lightbar   (desk, left wall)
          _z([4], [0, 1]),             # Retro Lamp      (corner shelves, top)
          _z([3, 4], [2, 3]),          # Cozy Light      (corner shelves, 2nd, nearest the TV)
          _z([4], [1, 2]),             # Mushroom Lamp   (corner shelves, 3rd)
-         _z([4], [2, 3])]             # Glowing Sphere  (right wall, by the bed)
+         _z([4], [2, 3])]             # Glowing Sphere  (right wall, low)
 
 hist = {z: collections.deque(maxlen=HISTORY) for z in ZONES}
 lock = threading.Lock()
@@ -256,7 +256,7 @@ def mode_server():
                 want = path.endswith("true")
                 set_wanted(want)
                 ok = hyperhdr_leds(want)               # on: start now; off: let go of the lamps now
-                print("sync", "on" if want else "off", "(owner)", "" if ok else "- HyperHDR not reached", flush=True)
+                print("sync", "on" if want else "off", "(requested)", "" if ok else "- HyperHDR not reached", flush=True)
                 c.sendall(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok" if ok else
                           b"HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\n\r\n"); continue
             mode = unquote(path[len("/mode/"):]) if path.startswith("/mode/") else ""
@@ -284,7 +284,7 @@ try: _app.update(json.load(open(APP_FILE)))
 except (OSError, ValueError): pass
 
 
-# --- fire glow (owner, 2026-10-19) ---------------------------------------------------------------
+# --- fire glow (2026-10-19) ---------------------------------------------------------------------
 # A fireplace video is a small fire in a black frame: following each lamp's own part of the
 # picture leaves the room at its dimmest glow. Such a video is there to light the room, so the
 # whole room takes the fire's colour and its brightness breathes with the flames. Lamps nearest the
@@ -294,7 +294,7 @@ import re
 GLOW_WORDS = re.compile(r"fire ?place|camp ?fire|bonfire|candle|yule log|fire sounds|burning logs", re.I)
 GLOW_DEPTH = [0.8, 0.8, 0.72,         # desk: lightbars, strip (far left wall)
               1.0, 0.7,               # floor lantern (beside the TV), uplighter (back wall)
-              0.95, 1.0, 0.95, 0.85]  # retro, cozy, mushroom (shelf by the TV), sphere (by the bed)
+              0.95, 1.0, 0.95, 0.85]  # retro, cozy, mushroom (shelf by the TV), sphere (right wall)
 TAU_GLOW, GLOW_RATE = 0.6, 0.6        # flames breathe a bit faster than film brightness, still a glide
 
 
@@ -358,10 +358,10 @@ def hdr_watch():
 # Without this, HyperHDR keeps its Hue Entertainment hold when the TV and PC are off and shows
 # black: lamps stuck dark, and Siri scenes / the Hue app cannot take them back. So: no source
 # for IDLE_RELEASE s -> switch HyperHDR's output off (it hands the lamps back as they were);
-# a source appears again -> switch it back on. Only undoes its own pauses: an "off" set by the
-# owner ("Stop syncing", a lighting routine) is left alone. State survives restarts.
+# a source appears again -> switch it back on. Only undoes its own pauses: an "off" set by a
+# person ("Stop syncing", a lighting routine) is left alone. State survives restarts.
 IDLE_RELEASE = 10
-WANT_FILE = "/var/lib/tv-mood/sync-wanted"   # exists = the owner asked for the sync (survives restarts)
+WANT_FILE = "/var/lib/tv-mood/sync-wanted"   # exists = someone asked for the sync (survives restarts)
 
 
 def sync_wanted():
@@ -409,7 +409,7 @@ def director():
                     print("screen playing again: lamps taken back", flush=True)
                 elif led_on and not sync_wanted():
                     # a source this script does not gate (the PC's forwarder) found the output on;
-                    # the sync runs only when the owner asked (2026-11-05: it was on, unasked)
+                    # the sync runs only when asked for (2026-11-05: it was on, unasked)
                     rpc({"command": "componentstate", "componentstate": {"component": "LEDDEVICE", "state": False}})
                     print("a screen is feeding but the sync was not asked for: lamps left alone", flush=True)
             else:
@@ -448,7 +448,7 @@ def main():
         if not run_from:
             run_from = (time.time(), frame_no)
             print("TV frames started from", peer, flush=True)
-        if not sync_wanted():                     # the owner did not ask for the sync: send nothing
+        if not sync_wanted():                     # nobody asked for the sync: send nothing
             shown = None; continue
         if frame_no == sent_no and time.time() - sent_at < 1: continue   # nothing new from the TV
         z = robust_zones()
@@ -477,7 +477,7 @@ def main():
         else: wema = tuple(wema[i] + (1 - math.exp(-dt / 1.0)) * (wcol[i] - wema[i]) for i in range(3))
         # colour and brightness move separately. Colour follows in ~0.45 s (faster only on a hard cut).
         # Brightness ALWAYS glides: ~1.2 s ease and never faster than LEVEL_RATE per second, so a flash
-        # or a cut to black fades instead of jumping (owner, 2026-10-19: "something in between").
+        # or a cut to black fades instead of jumping (2026-10-19: "something in between").
         if shown is None: shown = [(max(t) / 255, tuple(c / max(max(t), 1e-6) for c in t)) for t in target]
         ac = 1 - math.exp(-dt / (TAU_CUT if now < cut_until else TAU_CALM)) if dt > 0 else 1
         al = 1 - math.exp(-dt / (TAU_GLOW if glow else TAU_LEVEL)) if dt > 0 else 1

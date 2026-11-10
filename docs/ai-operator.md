@@ -14,25 +14,20 @@ health check. The agent is the layer above, and it thinks only when something wa
 | [`claude-session.service`](../_host/etc/systemd/system/claude-session.service) | runs a [herdr](https://herdr.dev/) terminal server that holds the session. `Restart=always`, `Nice=5` |
 | [`claude-session-ensure.sh`](../_host/usr/local/bin/claude-session-ensure.sh) | idempotent: creates the workspace if missing, launches Claude Code only if it is not already running |
 | `claude-session-keepalive.timer` | runs the ensure script every 10 minutes, so an exited session comes back |
-| `claude-login-check.timer` | warns 3 days before the 30-day login expires, and on the last day. It reads only the expiry date, never a token |
-
-The owner drives the same session from claude.ai Remote Control, with no terminal open
-anywhere.
 
 Two details in the ensure script came from failures:
 
 - **The launch is owned by the script, not by herdr.** herdr's own restore relaunches an
-  agent without `--remote-control`. After a reboot the session would look alive while
-  Remote Control was silently dead.
+  agent with its own command line, not the script's. After a reboot the session would look
+  alive while running without the flags it needs.
 - **It checks the screen, not just the process.** On first launch in a directory, Claude
   Code asks whether to trust the folder. Under systemd nobody can answer, and the parked
   process still counts as running. The script reads the pane for that dialog and fails
   loudly, so `homelab-failure@` tells the owner.
 
-The session runs with permission prompts turned off. That was the owner's decision: nobody is
-there to answer a prompt at 3 a.m. So the limits do not come from prompts.
-They come from the charter below, from systemd, and from the fact that every change goes
-through git and the alert path.
+The session runs unattended, and nobody is there to answer a prompt at 3 a.m. So the limits
+do not come from prompts. They come from the charter below, from systemd, and from the fact
+that every change goes through git and the alert path.
 
 ## What wakes it
 

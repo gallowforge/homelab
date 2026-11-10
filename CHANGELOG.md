@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### A generic public copy
+
+- Every compose file reads its time zone from `TZ` and falls back to `UTC`; the README and
+  the `.env.example` files document it. The network probe's report says "local time".
+- The Home Assistant configuration is reduced to a few illustrative routines with generic
+  entity names (`media_player.tv`, `scene.living_room_*`). The door-lock automations are
+  replaced by one generic battery alert over example sensors.
+- The operator's account-login reminder (`claude-login-check`) is removed, and the session
+  launcher no longer carries remote-access flags. The charter, the wake-ups and the
+  keepalive are unchanged.
+- Docs and comments describe a room and its devices in general terms instead of one
+  particular home.
+
 ### README in the Glass look
 
 - The README images are now real output as frosted-glass windows floating in light, the

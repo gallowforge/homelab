@@ -1,5 +1,5 @@
 [Unit]
-Description=tv-mood - Hue ambience from the Samsung TV picture (HyperTizen -> HyperHDR)
+Description=tv-mood - Hue ambience from the TV picture (HyperTizen -> HyperHDR)
 After=network-online.target hyperhdr@hyperhdr.service
 Wants=network-online.target
 

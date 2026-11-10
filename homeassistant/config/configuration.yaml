@@ -11,13 +11,13 @@ system_log:
   fire_event: true
 
 automation: !include automations.yaml
-# iPhone Shortcuts run the owner's 9 routines (scripts.yaml) through one LAN-only webhook,
+# A phone's shortcuts run the routines in scripts.yaml through one LAN-only webhook,
 # e.g. POST http://192.168.1.10:8123/api/webhook/<id>?r=movie_time . Shortcuts built this way
 # do not reference Apple Home device ids, so HomeKit re-pairing cannot break them.
 # The webhook id is in secrets.yaml (shortcuts_webhook).
 automation shortcuts:
-  - id: iphone_shortcuts_webhook
-    alias: iPhone Shortcuts run a routine
+  - id: phone_shortcuts_webhook
+    alias: Phone shortcuts run a routine
     mode: queued
     triggers:
       - trigger: webhook
@@ -27,12 +27,8 @@ automation shortcuts:
     conditions:
       - condition: template
         value_template: >-
-          {{ trigger.query.r in ['let_there_be_light','movie_time','make_it_cozy','make_it_cinematic',
-             'i_need_some_air','i_need_some_silence','im_home','leaving_home','off_to_bed',
-             'golden_hour','light_the_fire','wind_down','neon_nights','horror_night','northern_lights',
-             'rainy_night','time_to_focus','game_on','pure_cinema','party_time',
-             'sync_lights','stop_syncing','couch_mode','desk_mode','big_picture_on',
-             'big_picture_off'] }}
+          {{ trigger.query.r in ['lights_up','movie_time','cinema','golden_hour','all_off',
+             'sync_lights','stop_syncing'] }}
     actions:
       - action: script.turn_on
         target:
@@ -50,10 +46,12 @@ scene: !include scenes.yaml
 #   login_attempts_threshold: 10       bans are written to ip_bans.yaml
 # Why, how to unban, how to change it: ../README.md
 
-# Alerts to the owner's phone (HA companion app), added 2026-10-16.
+# Alerts to the phone (HA companion app).
 automation alerts:
-  - id: alert_lock_battery_low
-    alias: Alert - door lock battery low
+  # Illustrative: one push a day while any listed battery sensor is below 25 %.
+  # List your own battery sensors; unavailable ones are skipped.
+  - id: alert_battery_low
+    alias: Alert - device battery low
     mode: single
     triggers:
       - trigger: time
@@ -61,43 +59,20 @@ automation alerts:
     conditions:
       - condition: template
         value_template: >-
-          {{ ['sensor.bedroom_lock_battery','sensor.front_door_battery','sensor.office_lock_battery','sensor.guest_room_lock_battery']
+          {{ ['sensor.example_door_lock_battery','sensor.example_motion_sensor_battery']
              | select('has_value') | map('states') | map('int', 100) | min < 25 }}
     actions:
       - action: notify.mobile_app_phone
         data:
-          title: Door lock battery low
+          title: Battery low
           message: >-
-            {% set n = {'sensor.bedroom_lock_battery':'Bedroom','sensor.front_door_battery':'Front door',
-                        'sensor.office_lock_battery':'Office','sensor.guest_room_lock_battery':'Guest room'} %}
-            {% for e, name in n.items() if has_value(e) and states(e)|int(100) < 25 %}{{ name }} {{ states(e) }}%{{ ', ' if not loop.last }}{% endfor %}
+            {% for e in ['sensor.example_door_lock_battery','sensor.example_motion_sensor_battery']
+               if has_value(e) and states(e)|int(100) < 25 %}{{ state_attr(e, 'friendly_name') or e }} {{ states(e) }}%{{ ', ' if not loop.last }}{% endfor %}
             - replace the batteries.
-  - id: alert_front_door_unlocked_night
-    alias: Alert - front door unlocked at night
-    mode: single
-    triggers:
-      - trigger: state
-        entity_id: lock.front_door
-        to: unlocked
-        for: "00:10:00"
-      - trigger: time
-        at: "00:30:00"
-    conditions:
-      - condition: state
-        entity_id: lock.front_door
-        state: unlocked
-      - condition: time
-        after: "23:00:00"
-        before: "06:00:00"
-    actions:
-      - action: notify.mobile_app_phone
-        data:
-          title: Front door is unlocked
-          message: The front door has been unlocked for a while at night.
   # A SwitchBot hub can drop off the SwitchBot cloud while its sensors still report; every
-  # infrared command through it (AC, ceiling LEDs, desk speakers) then fails with "device is
-  # offline". 2026-10-28/29 the Bedroom hub did, unnoticed for 11 hours. Only the owner can
-  # fix it (power-cycle the hub), so the push goes to his phone: at most one per 6 hours.
+  # infrared command through it (AC, ceiling LEDs, speakers) then fails with "device is
+  # offline". One hub did, unnoticed for 11 hours. Only a power-cycle by hand fixes it, so
+  # the push goes to the phone: at most one per 6 hours.
   - id: alert_switchbot_hub_offline
     alias: Alert - SwitchBot hub offline (AC, ceiling light, speakers)
     mode: single
@@ -123,14 +98,13 @@ automation alerts:
         data:
           title: SwitchBot hub offline
           message: >-
-            {{ routine }} couldn't reach the AC, ceiling light or desk speakers: their SwitchBot hub
+            {{ routine }} couldn't reach the AC, ceiling light or speakers: their SwitchBot hub
             is offline. Unplug the hub for 10 seconds, then plug it back in. The rest of the routine still ran.
 
-# Desktop PC power (added 2026-10-12, owner request): the "Desktop PC" switch wakes it
-# with Wake-on-LAN and shuts it down over SSH with a key that can ONLY run
-# `sudo systemctl poweroff` on the PC (authorized_keys forced command, key in
-# /config/.pc-poweroff-key, never tracked). After waking, the PC waits at its disk-password
-# screen unless the TPM unlocks it (since 2026-10-15 it does, straight to the desktop).
+# Desktop PC power: the "Desktop PC" switch wakes it with Wake-on-LAN and shuts it down
+# over SSH with a key that can ONLY run `sudo systemctl poweroff` on the PC (authorized_keys
+# forced command, key in /config/.pc-poweroff-key, never tracked). A PC with an encrypted
+# disk waits at its disk-password screen after waking unless the TPM unlocks it.
 switch:
   - platform: wake_on_lan
     name: "Desktop PC"
@@ -145,16 +119,13 @@ shell_command:
   tv_picture_mode: python3 /config/tv_picture_mode.py "{{ mode }}"
   tv_smartthings_check: python3 /config/tv_picture_mode.py --check
   tv_picture_mode_read: python3 /config/tv_picture_mode.py --read
-  # Couch/desk mode and Steam Big Picture on the PC. The key is forced to ~/.local/bin/pc-remote
-  # on the PC (authorized_keys "ha-pc-remote", from this Pi only), which accepts only these words.
-  pc_remote: ssh -i /config/.pc-remote-key -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/config/.pc-known-hosts -o ConnectTimeout=5 user@192.168.1.20 {{ action }}
   pc_poweroff: "ssh -i /config/.pc-poweroff-key -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/config/.pc-known-hosts -o ConnectTimeout=5 user@192.168.1.20"
 
-# Hue lights follow the screen (2026-10-18). HyperHDR on this Pi drives the lamps: the Samsung
-# TV's HyperTizen app -> tv-mood (calm palette) -> HyperHDR. The sync runs only when the owner
-# asked for it (2026-10-21): "Sync lights" = /sync/true, every lighting routine and "Stop syncing"
-# = /sync/false, told to tv-mood, which then sends nothing to HyperHDR, so turning the TV on
-# cannot start the sync by itself. See ../docs/tv-ambient-lighting.md.
+# Hue lights follow the screen. HyperHDR on this Pi drives the lamps: the TV's HyperTizen
+# app -> tv-mood (calm palette) -> HyperHDR. The sync runs only when asked for: "Sync lights"
+# = /sync/true, every lighting routine and "Stop syncing" = /sync/false, told to tv-mood, which
+# then sends nothing to HyperHDR, so turning the TV on cannot start the sync by itself.
+# See ../docs/tv-ambient-lighting.md.
 rest_command:
   hue_sync:
     url: "http://127.0.0.1:8098/sync/{{ 'true' if state in (true, 'true', 'True') else 'false' }}"
@@ -175,19 +146,19 @@ rest_command:
     method: GET
     timeout: 4
 
-# TV picture mode follows the room lighting (added 2026-10-17, owner request).
-# The lighting routines call script.tv_picture_mode: bright (Let there be light, Make it
-# cozy, I'm Home) = Standard, Movie time = Movie, Make it Cinematic = FILMMAKER MODE.
-# The choice is remembered in input_select.tv_picture_mode and applied when the TV is
-# switched on later, so the TV always matches the room. Works through Samsung's cloud.
 # The washer's SmartThings link drops offline every few minutes (about 50 times a day,
 # its own Wi-Fi), so "run -> stop" was often "run -> unavailable -> stop" and the
-# "wash is done" push never fired. This remembers that a wash started (2026-10-21).
+# "wash is done" push never fired. This remembers that a wash started.
 input_boolean:
   washer_running:
     name: Washing machine is running
     icon: mdi:washing-machine
 
+# TV picture mode follows the room lighting. The lighting routines call
+# script.tv_picture_mode: bright (Lights up, Golden hour) = Standard, Movie time = Movie,
+# Cinema = FILMMAKER MODE. The choice is remembered in input_select.tv_picture_mode and
+# applied when the TV is switched on later, so the TV always matches the room. Works through
+# the TV maker's cloud (SmartThings).
 input_select:
   tv_picture_mode:
     name: TV Picture Mode
@@ -208,8 +179,8 @@ automation tv:
         data:
           mode: "{{ states('input_select.tv_picture_mode') }}"
         continue_on_error: true
-  # HA stopped renewing the SmartThings token on 2026-10-18 (after a cloud connection error at
-  # 05:11), so every picture-mode change failed with 401 until the integration was reloaded.
+  # HA once stopped renewing the SmartThings token (after a cloud connection error), so every
+  # picture-mode change failed with 401 until the integration was reloaded.
   # Every 30 min: if the token has expired, reload the integration (which renews it).
   - id: tv_smartthings_token_keepalive
     alias: TV - keep the SmartThings login fresh (picture mode)
@@ -226,8 +197,8 @@ automation tv:
       - if: "{{ chk is defined and chk.returncode == 3 }}"
         then:
           - action: homeassistant.reload_config_entry
-            data: {entry_id: "{{ config_entry_id('media_player.samsung_tv_smartthings') }}"}
-  # The owner may change the picture mode with the TV remote: read the TV's real mode every
+            data: {entry_id: "{{ config_entry_id('media_player.tv_smartthings') }}"}
+  # The picture mode may also be changed with the TV remote: read the TV's real mode every
   # 2 minutes while it is on, so the Hue sync brightness (and the remembered mode) follows it.
   - id: tv_picture_mode_follow_remote
     alias: TV - notice picture mode changes made with the remote
@@ -237,7 +208,7 @@ automation tv:
         minutes: "/2"
     conditions:
       - condition: state
-        entity_id: media_player.samsung_tv
+        entity_id: media_player.tv
         state: "on"
       # stay out of the way of a routine that is switching the mode right now
       - condition: template
@@ -263,28 +234,28 @@ automation tv:
     mode: queued
     triggers:
       - trigger: state
-        entity_id: media_player.bedroom
+        entity_id: media_player.living_room
         attribute: app_name
       - trigger: state
-        entity_id: media_player.bedroom
+        entity_id: media_player.living_room
         attribute: media_title
       - trigger: homeassistant
         event: start
     actions:
       - action: rest_command.tv_mood_app
         data:
-          app: "{{ state_attr('media_player.bedroom', 'app_name') or 'none' }}"
+          app: "{{ state_attr('media_player.living_room', 'app_name') or 'none' }}"
         continue_on_error: true
       - action: rest_command.tv_mood_title
         data:
-          title: "{{ state_attr('media_player.bedroom', 'media_title') or 'none' }}"
+          title: "{{ state_attr('media_player.living_room', 'media_title') or 'none' }}"
         continue_on_error: true
   - id: tv_picture_mode_on_power_on
     alias: TV - apply the room's picture mode when the TV turns on
     mode: restart
     triggers:
       - trigger: state
-        entity_id: media_player.samsung_tv
+        entity_id: media_player.tv
         to: "on"
     actions:
       - delay: "00:00:15"
@@ -292,8 +263,7 @@ automation tv:
         data:
           mode: "{{ states('input_select.tv_picture_mode') }}"
 
-# Gentle room automations (added 2026-10-17, owner asked for "more automated").
-# Each can be switched off on its own in Settings > Automations.
+# Small household automations. Each can be switched off on its own in Settings > Automations.
 automation moods:
   - id: washer_finished_notify
     alias: Washing machine - tell the phone when it finishes
@@ -330,7 +300,5 @@ automation moods:
                 data:
                   title: Washing machine
                   message: The wash is done.
-  # (after_movie_glow removed 2026-10-23, owner: when the TV turns off the lights must stay
-  # exactly as they are until he changes them; it used to switch the room to Embers.)
-  # (xbox_game_on removed 2026-11-07, owner: turning the Xbox on must not touch the lights; it
-  # used to switch the ceiling off and run Game On. "Game on" stays as his own Shortcut only.)
+  # Lights change only when someone asks: automations that switched scenes when the TV or a
+  # games console turned on or off were tried and removed.

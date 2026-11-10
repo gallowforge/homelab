@@ -15,7 +15,7 @@ services:
       - "com.centurylinklabs.watchtower.enable=true"
     network_mode: "host"   # binds :53 (DNS) and :3002 (web UI) on the host
     environment:
-      - TZ=Asia/Kuwait
+      - TZ=${TZ:-UTC}
     security_opt:
       - no-new-privileges:true   # runs as root; the :53 bind still works (tested 2026-09-17)
     oom_score_adj: -500          # under memory pressure the kernel kills other things first
