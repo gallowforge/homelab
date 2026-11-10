@@ -11,7 +11,6 @@ OK      usr/local/sbin/homelab-heartbeat-gate
 OK      usr/local/bin/tv-mood
 OK      usr/local/bin/hyperhdr-guard.sh
 OK      usr/local/lib/room-show.py
-OK      usr/local/bin/claude-login-check.sh
 OK      etc/homelab/backups.conf
 OK      etc/systemd/system/adguard-pin.service
 OK      etc/systemd/system/adguard-pin.timer
@@ -50,8 +49,6 @@ OK      etc/systemd/system/zram-swap.service
 OK      etc/systemd/system/cpu-performance.service
 OK      etc/systemd/system/eth-ring.service
 OK      etc/systemd/system/hyperhdr@.service.d/limits.conf
-OK      etc/systemd/system/claude-login-check.service
-OK      etc/systemd/system/claude-login-check.timer
 OK      usr/local/bin/homelab-netprobe
 OK      etc/systemd/system/homelab-netprobe.service
 OK      etc/systemd/system/homelab-netprobe.timer
