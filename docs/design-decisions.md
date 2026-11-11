@@ -1,6 +1,6 @@
 # Design decisions
 
-Why the Pi is built the way it is. Each section names the constraint, the choice and what it costs. The goals these choices serve, in priority order, are in the [README](../README.md#goals-in-priority-order).
+Why the Pi is built the way it is. Each section names the constraint, the choice and what it costs. The goals these choices serve, in priority order, are in the [README](../README.md#how-it-works), in the section that opens under the table.
 
 ## Tailscale instead of port forwarding
 The ISP puts the house behind CGNAT and gives no IPv6, so port forwarding is not an

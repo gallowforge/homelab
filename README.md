@@ -181,7 +181,7 @@ Every push and pull request runs [`validate.yml`](.github/workflows/validate.yml
 | --- | --- |
 | `bash -n` and `shellcheck --severity=error` | All 18 shell scripts, found by shebang, since most host scripts have no extension |
 | `python -m py_compile` | All 5 Python files |
-| YAML parse | All 14 compose and Home Assistant files; HA's `!include` and `!secret` tags are read as opaque values |
+| YAML parse | All 14 YAML files: the 9 compose files, the 4 Home Assistant files and the CI workflow; HA's `!include` and `!secret` tags are read as opaque values |
 | `homelab-backup --check-config` | The backup list: 9 sets, every key and path validated |
 | Stubbed tests | 43 checks of the notifier and the network probe behind three layers of stubs; a run must end with zero real calls |
 | gitleaks | The full git history, on every push |

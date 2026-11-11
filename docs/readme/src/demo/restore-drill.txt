@@ -1,10 +1,10 @@
-PASS adguard: adguard_20261107_050002.tar.gz: AdGuardHome.yaml present with http/dns sections, no .bak copies
-PASS couchdb: couchdb_20261107_050002.tar.gz: 8 .couch files (live 8), docker.ini present
-PASS kuma: kuma_20261107_050002.tar.gz: integrity_check ok, monitor=13 (live now 13)
-PASS vaultwarden: vaultwarden_20261107_050002.tar.gz: integrity_check ok, ciphers=412 (live now 412), rsa_key.pem present and identical to live
-PASS dockge: dockge_20261107_050002.tar.gz: integrity_check ok, user=1 (live now 1)
-PASS syncthing: syncthing_20261107_050002.tar.gz: key.pem + parseable cert.pem + config.xml, no index/lock, 4.0K
-PASS homeassistant: Automatic_backup_2026.11.1_2026-11-07_04.51_51073412.tar: tar opens, backup.json: Automatic backup 2026.11.1 2026-11-07T04:51:07+00:00 protected=True, link count 2, mode 600
-PASS platform: platform_20261107_050002.tar.gz: bundle clones (94 files, HEAD d5a1aa1 = live or 0 commits behind it), crontabs + backups.conf present, 33 units
-PASS secrets: secrets_20261107_050002.tar.gz: 6 files, all identical to live (contents not shown)
+PASS adguard: adguard_20261111_050002.tar.gz: AdGuardHome.yaml present with http/dns sections, no .bak copies
+PASS couchdb: couchdb_20261111_050002.tar.gz: 8 .couch files (live 8), docker.ini present
+PASS kuma: kuma_20261111_050002.tar.gz: integrity_check ok, monitor=13 (live now 13)
+PASS vaultwarden: vaultwarden_20261111_050002.tar.gz: integrity_check ok, ciphers=412 (live now 412), rsa_key.pem present and identical to live
+PASS dockge: dockge_20261111_050002.tar.gz: integrity_check ok, user=1 (live now 1)
+PASS syncthing: syncthing_20261111_050002.tar.gz: key.pem + parseable cert.pem + config.xml, no index/lock, 4.0K
+PASS homeassistant: Automatic_backup_2026.11.1_2026-11-11_04.51_51073412.tar: tar opens, backup.json: Automatic backup 2026.11.1 2026-11-11T04:51:07+00:00 protected=True, link count 2, mode 600
+PASS platform: platform_20261111_050002.tar.gz: bundle clones (146 files, HEAD 1906131 = live or 0 commits behind it), crontabs + backups.conf present, 31 units
+PASS secrets: secrets_20261111_050002.tar.gz: 6 files, all identical to live (contents not shown)
 restore test: 9 passed, 0 failed (restored copies in /dev/shm/restore-test deleted)

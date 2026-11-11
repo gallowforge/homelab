@@ -1,1 +1,1 @@
-[caretaker alert 2026-11-07 05:00] Automated, not from the owner. An alert just went to the owner: key=unit-failed-homelab-backup.service title=homelab-backup.service failed on raspberrypi. Investigate per ~/docker/CARETAKER.md.
+[caretaker alert 2026-11-11 05:00] Automated, not from the owner. An alert just went to the owner: key=unit-failed-homelab-backup.service title=homelab-backup.service failed on raspberrypi. Investigate per ~/docker/CARETAKER.md.

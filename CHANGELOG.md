@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### README and docs checked against the repository
+
+- The images that show the `platform` backup set (the hero, the nightly backup and the restore
+  drill) were captured again with `scripts/readme-demo.sh`, so they show what the scripts print
+  for this copy today: 31 units, and 146 files in the bundle.
+- The link from `docs/design-decisions.md` to the goals lands on a heading that exists, and the
+  Quality table says what the 14 YAML files are.
+
 ### A generic public copy
 
 - Every compose file reads its time zone from `TZ` and falls back to `UTC`; the README and

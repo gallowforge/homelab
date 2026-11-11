@@ -1,6 +1,6 @@
 DIFF    etc/fail2ban/jail.local
-        --- /etc/fail2ban/jail.local	2026-11-07 08:57:31.000000000 +0000
-        +++ /home/pi/docker/_host/etc/fail2ban/jail.local	2026-10-29 14:20:05.000000000 +0000
+        --- /etc/fail2ban/jail.local	2026-11-11 08:57:31.000000000 +0000
+        +++ /home/pi/docker/_host/etc/fail2ban/jail.local	2026-11-02 14:20:05.000000000 +0000
         @@ -1,7 +1,7 @@
          [DEFAULT]
          bantime = 1h
@@ -10,6 +10,6 @@ DIFF    etc/fail2ban/jail.local
          backend = systemd
          # Never ban the admin paths: localhost, the home LAN and the tailnet (v4 + v6).
          # The desktop's tailnet IP was banned on 2026-09-08 by agents guessing usernames;
-        installed (old saved to /var/backups/homelab-install/20261107-091204/etc/fail2ban/jail.local)
+        installed (old saved to /var/backups/homelab-install/20261111-091204/etc/fail2ban/jail.local)
 Follow-up needed (NOT run automatically):
   etc/fail2ban/jail.local: sudo fail2ban-client reload
